@@ -1,0 +1,6 @@
+-<project version="0.1">
+ -<description> 
+    Zynqberry board definition file. Work in progress. 
+  </description> 
+  <Projinfo Part="x7z010clg225-1" DeviceSize="xc7z010" Package="clg225" Speed="-1"/> 
+</project>  
