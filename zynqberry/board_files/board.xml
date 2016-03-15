@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?> 
+<board schema_version="0.1" vendor="trenz" name="zynqberry" display_name="ZynqBerry" preset_file="preset.xml" >
+<file_version>0.1</file_version> 
+<description>ZyncBerry</description> 
+<components> 
+  <component name="part0" display_name="ZynqBerry" type="fpga" part_name="xc7z010clg225-1" pin_map_file="part0_pins.xml" vendor="xilinx" > 
+  </component> 
+</board> 
