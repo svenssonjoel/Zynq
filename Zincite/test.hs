@@ -3,8 +3,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-import Control.Monad.State
-import Control.Monad.Writer
+import Control.Monad.State  hiding (forever)
+import Control.Monad.Writer hiding (forever)
 import Control.Applicative 
 
 type Name = String 
@@ -52,24 +52,29 @@ data Op2 = Add | Sub | Mul | Div | BitAnd | BitOr | BitXor
   deriving Show 
 data Op1 = Neg | Not 
   deriving Show 
-  
+
+
+type Target = Name
+           
 -- statment language 
 data Code =
     Nil
-  | MRead  InterfaceIO Type Exp     -- DRAM Read 
-  | MWrite InterfaceIO Type Exp Exp -- DRAM Write 
-  | LocalMemory LocalMem Int        -- Request use of BRAM 
-  | LWrite Name Type Exp Exp        -- BRAM Write
-  | LRead  Name Type Exp            -- BRAM Read
-  | SGet   StreamInternal Type      -- Pop of a Stream 
-  | SPut   StreamInternal Type      -- Push onto a Stream 
-  | Assign String Type Exp          -- Assignment to variable 
-  | Seq    Code Code                -- sequencing of operations
+  | MRead  Target InterfaceIO Type Exp -- DRAM Read 
+  | MWrite InterfaceIO Type Exp Exp    -- DRAM Write 
+  | LocalMemory LocalMem Int           -- Request use of BRAM 
+  | LWrite LocalMem Type Exp Exp       -- BRAM Write
+  | LRead  Target LocalMem Type Exp    -- BRAM Read
+  | SGet   Target StreamInternal Type  -- Pop of a Stream 
+  | SPut   StreamInternal Type Exp     -- Push onto a Stream 
+  | Assign Target Type Exp             -- Assignment to variable 
+  | Seq    Code Code                   -- sequencing of operations
   | While  Name Code Exp
     deriving Show 
 
 instance Monoid Code where
   mempty = Nil
+  mappend Nil b = b
+  mappend a Nil = a 
   mappend a b = a `Seq` b
  
 newtype Compute a = Compute (StateT Int (Writer Code) a )
@@ -79,7 +84,14 @@ runCompute :: Compute a -> ((a, Int),Code)
 runCompute (Compute c) = runWriter $ runStateT c 0 
   --let ma = runStateT c 0 
   --in runWriter ma
-           
+
+freshName :: Name -> Compute Name
+freshName pre = do
+  s <- get
+  put (s + 1)
+  return (pre ++ show s) 
+
+  
 class MemoryIO a where
   mread  :: InterfaceIO -> Expr Address -> Compute (Expr a) 
   mwrite :: InterfaceIO -> Expr Address -> Expr a -> Compute ()
@@ -92,10 +104,16 @@ instance MemoryIO Int where
 ------------------------------------------------------------
 -- Stream get and put 
 sget :: StreamIn a -> Compute (Expr a)
-sget = undefined
+sget (SIn si@(StreamInternal _ typ)) =
+  do
+    nom <- freshName "s"
+    let var = E $ Variable nom
+    
+    tell $ SGet nom si typ
+    return var
 
 sput :: StreamOut a -> Expr a -> Compute ()
-sput = undefined
+sput (SOut si@(StreamInternal _ typ)) (E e) = tell $ SPut si typ e 
 
 ------------------------------------------------------------
 -- Allocate a statically known quantity of local memory.
@@ -108,10 +126,8 @@ bram = undefined
 while :: (Expr a -> Expr Bool) -> (Expr a -> Compute ()) -> Expr a -> Compute ()
 while cond body init =
   do
-    s <- get -- get the counter
-    
-    let nom = "tmp" ++ (show s)
-        var = E $ Variable $ nom
+    nom <- freshName "tmp" 
+    let var = E $ Variable $ nom
         bodyComp = body var
         condExpr = cond var
         (((),i),bodyCode) = runCompute bodyComp
@@ -121,14 +137,17 @@ while cond body init =
 ------------------------------------------------------------
 -- Loop a computation forever 
 forever :: Compute () -> Compute ()
-forever c = undefined
+forever c = while (id) (\_ -> c) true
 
 test1 :: StreamIn Int -> StreamIn Int -> StreamOut Int -> Compute ()
-test1 ins1 ins2 os = do
-  a <- sget ins1 
-  b <- sget ins2
-  sput os (a + b)  
-  
+test1 ins1 ins2 os =
+  forever $ 
+  do 
+    a <- sget ins1 
+    b <- sget ins2
+    sput os (a + b)  
+
+aTest1 = test1 (SIn (StreamInternal "s1" TInt)) (SIn (StreamInternal "s2" TInt)) (SOut (StreamInternal "s3" TInt))
 
 
 
