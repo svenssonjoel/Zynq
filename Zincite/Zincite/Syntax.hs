@@ -33,7 +33,9 @@ data Exp =
   Constant Value
   | Variable Name 
   | BinOp Op2 Exp Exp
-  | UnOp  Op1 Exp Exp
+  | UnOp  Op1 Exp 
+  | MRead InterfaceIO Type Exp -- Read from Interface at address
+  | LRead LocalMem Type Exp    -- Read from local memory at address
     deriving Show 
 
 newtype Expr a = E {unE :: Exp}
@@ -58,14 +60,15 @@ data Op1 = Neg | Not
 
 type Target = Name
            
--- statment language 
+-- statment language
+-- TODO: Consider making MRead, LRead, SGet (and maybe others part of the expression lang) 
 data Code =
     Nil
-  | MRead  Target InterfaceIO Type Exp -- DRAM Read 
+ -- | MRead  Target InterfaceIO Type Exp -- DRAM Read 
   | MWrite InterfaceIO Type Exp Exp    -- DRAM Write 
   | LocalMemory LocalMem Int           -- Request use of BRAM 
   | LWrite LocalMem Type Exp Exp       -- BRAM Write
-  | LRead  Target LocalMem Type Exp    -- BRAM Read
+--  | LRead  Target LocalMem Type Exp    -- BRAM Read
   | SGet   Target StreamInternal Type  -- Pop of a Stream 
   | SPut   StreamInternal Type Exp     -- Push onto a Stream 
   | Assign Target Type Exp             -- Assignment to variable 
@@ -84,9 +87,6 @@ newtype Compute a = Compute (StateT Int (Writer Code) a )
 
 runCompute :: Compute a -> ((a, Int),Code) 
 runCompute (Compute c) = runWriter $ runStateT c 0 
-  --let ma = runStateT c 0 
-  --in runWriter ma
-
 
 runComputeLocal :: Compute () -> Compute Code
 runComputeLocal (Compute c) =
@@ -106,13 +106,16 @@ freshName pre = do
 
   
 class MemoryIO a where
-  mread  :: InterfaceIO -> Expr Address -> Compute (Expr a) 
+  mread  :: InterfaceIO -> Expr Address -> Expr a 
   mwrite :: InterfaceIO -> Expr Address -> Expr a -> Compute ()
 
 instance MemoryIO Int where
-  mread = undefined
-  mwrite = undefined
-
+  mread interface addr =
+    E $ MRead interface TInt (unE addr) 
+    
+  mwrite interface addr value =
+    tell $ MWrite interface TInt (unE addr) (unE value) 
+      
 
 -------------------------------------------------------------
 -- Expable class (called Emb for now) 
@@ -170,18 +173,7 @@ while cond body init =
 forever :: Compute () -> Compute ()
 forever c = while (id) (\_ -> c) true
 
-------------------------------------------------------------
--- test
 
-test1 :: StreamIn Int -> StreamIn Int -> StreamOut Int -> Compute ()
-test1 ins1 ins2 os =
-  forever $ 
-  do 
-    a <- sget ins1 
-    b <- sget ins2
-    sput os (a + b)  
-
-aTest1 = runCompute $ test1 (SIn (StreamInternal "s1" TInt)) (SIn (StreamInternal "s2" TInt)) (SOut (StreamInternal "s3" TInt))
 
 
 
