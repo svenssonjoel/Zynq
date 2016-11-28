@@ -7,10 +7,12 @@ module Zincite.Syntax where
 
 import Control.Monad.State  hiding (forever)
 import Control.Monad.Writer hiding (forever)
-import Control.Applicative 
+import Control.Applicative
+
+import Data.Word 
 
 type Name = String 
-type Address = Int
+type Address = Word
 type Size = Int
 data Data
 
@@ -24,6 +26,7 @@ data Type = TInt | TFloat | TBool | TStream Type
   deriving Show 
 
 data Value = IntVal Int
+           | UIntVal Word 
            | FloatVal Float
            | BoolVal Bool 
              deriving Show
@@ -47,6 +50,15 @@ instance Num (Expr Int) where
   abs = undefined
   signum = undefined
   fromInteger i = E $ Constant $ IntVal $ fromInteger i
+
+instance Num (Expr Word) where
+  (+) a b = E $ BinOp Add (unE a) (unE b)
+  (-) a b = E $ BinOp Sub (unE a) (unE b)
+  (*) a b = E $ BinOp Mul (unE a) (unE b)
+  abs = undefined
+  signum = undefined
+  fromInteger i = E $ Constant $ UIntVal $ fromInteger i
+
 
 
 true = E $ Constant $ BoolVal True 
