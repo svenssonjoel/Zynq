@@ -104,7 +104,10 @@ freshName pre = do
   put (s + 1)
   return (pre ++ show s) 
 
-  
+
+
+
+-- TODO: Clean up things 
 class MemoryIO a where
   mread  :: InterfaceIO -> Expr Address -> Expr a 
   mwrite :: InterfaceIO -> Expr Address -> Expr a -> Compute ()
@@ -115,7 +118,14 @@ instance MemoryIO Int where
     
   mwrite interface addr value =
     tell $ MWrite interface TInt (unE addr) (unE value) 
-      
+
+instance MemoryIO Float where
+  mread interface addr =
+    E $ MRead interface TFloat (unE addr) 
+    
+  mwrite interface addr value =
+    tell $ MWrite interface TFloat (unE addr) (unE value) 
+
 
 -------------------------------------------------------------
 -- Expable class (called Emb for now) 
