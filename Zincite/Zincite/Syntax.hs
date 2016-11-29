@@ -20,7 +20,7 @@ data InterfaceIO = InterfaceIO Name deriving Show
 data StreamInternal  = StreamInternal Name Type deriving Show 
 newtype StreamIn a = SIn StreamInternal deriving Show -- Phantom type a 
 newtype StreamOut a = SOut StreamInternal deriving Show 
-data LocalMem = LocalMem Name deriving Show 
+data LocalMem = LocalMem Name Int deriving Show 
   
 data Type = TInt | TFloat | TBool | TStream Type
   deriving Show 
@@ -78,7 +78,7 @@ data Code =
     Nil
  -- | MRead  Target InterfaceIO Type Exp -- DRAM Read 
   | MWrite InterfaceIO Type Exp Exp    -- DRAM Write 
-  | LocalMemory LocalMem Int           -- Request use of BRAM 
+  | LocalMemory LocalMem               -- Request use of BRAM 
   | LWrite LocalMem Type Exp Exp       -- BRAM Write
 --  | LRead  Target LocalMem Type Exp    -- BRAM Read
   | SGet   Target StreamInternal Type  -- Pop of a Stream 
@@ -175,7 +175,11 @@ sput (SOut si@(StreamInternal _ typ)) (E e) = tell $ SPut si typ e
 -- Allocate a statically known quantity of local memory.
 -- In other words request use request the use of some amount of BRAM
 bram :: Int -> Compute LocalMem
-bram = undefined
+bram n =
+  do nom <- freshName "bram"
+     let lmem = LocalMem nom n
+     tell $ LocalMemory lmem
+     return lmem 
 
 ------------------------------------------------------------
 -- while
