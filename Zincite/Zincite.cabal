@@ -50,6 +50,7 @@ library
   -- Modules exported by the library.
   exposed-modules: Zincite.GenCpp
                  , Zincite.Syntax
+                 , Zincite.Pull
   
   -- Modules included in this library but not exported.
   -- other-modules:       

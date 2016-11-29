@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Zincite.Syntax where 
 
@@ -16,13 +17,26 @@ type Address = Word
 type Size = Int
 data Data
 
-data InterfaceIO = InterfaceIO Name deriving Show 
+--data InterfaceIO = InterfaceIO Name deriving Show 
 data StreamInternal  = StreamInternal Name Type deriving Show 
 newtype StreamIn a = SIn StreamInternal deriving Show -- Phantom type a 
 newtype StreamOut a = SOut StreamInternal deriving Show 
-data LocalMem = LocalMem Name Int deriving Show 
+--data LocalMem = LocalMem Name Int deriving Show
+
+
+-- Unify the memory types
+data MemoryInternal = InterfaceIO Name
+                    | LocalMem Name Int
+                    deriving Show 
+
+data Local
+data Global 
+newtype Memory a = M {unM :: MemoryInternal}
+  deriving Show 
+
+
   
-data Type = TInt | TFloat | TBool | TStream Type
+data Type = TInt | TUInt | TFloat | TBool | TStream Type
   deriving Show 
 
 data Value = IntVal Int
@@ -32,16 +46,21 @@ data Value = IntVal Int
              deriving Show
                       
 -- expression language
+-- TODO: Support for Tuples 
 data Exp =
   Constant Value
   | Variable Name 
   | BinOp Op2 Exp Exp
   | UnOp  Op1 Exp 
-  | MRead InterfaceIO Type Exp -- Read from Interface at address
-  | LRead LocalMem Type Exp    -- Read from local memory at address
+  | MRead MemoryInternal Type Exp -- Read from Interface at address
+ -- | LRead LocalMem Type Exp    -- Read from local memory at address
     deriving Show 
 
 newtype Expr a = E {unE :: Exp}
+
+------------------------------------------------------------
+-- Arithmetic and operations
+
 
 instance Num (Expr Int) where
   (+) a b = E $ BinOp Add (unE a) (unE b)
@@ -59,12 +78,15 @@ instance Num (Expr Word) where
   signum = undefined
   fromInteger i = E $ Constant $ UIntVal $ fromInteger i
 
+mod :: Expr a -> Expr a -> Expr a
+mod a b = E $ BinOp Mod (unE a) (unE b) 
 
-
+------------------------------------------------------------
+-- Booleans and bool ops 
 true = E $ Constant $ BoolVal True 
 false = E $ Constant $ BoolVal False
 
-data Op2 = Add | Sub | Mul | Div | BitAnd | BitOr | BitXor
+data Op2 = Add | Sub | Mul | Div | Mod | BitAnd | BitOr | BitXor
   deriving Show 
 data Op1 = Neg | Not 
   deriving Show 
@@ -76,10 +98,11 @@ type Target = Name
 -- TODO: Consider making MRead, LRead, SGet (and maybe others part of the expression lang) 
 data Code =
     Nil
+  | Declare Name Type                  -- Variable declaration
  -- | MRead  Target InterfaceIO Type Exp -- DRAM Read 
-  | MWrite InterfaceIO Type Exp Exp    -- DRAM Write 
-  | LocalMemory LocalMem               -- Request use of BRAM 
-  | LWrite LocalMem Type Exp Exp       -- BRAM Write
+  | MWrite MemoryInternal Type Exp Exp    -- DRAM Write 
+  | LocalMemory MemoryInternal               -- Request use of BRAM 
+--  | LWrite MemoryInternal Type Exp Exp       -- BRAM Write
 --  | LRead  Target LocalMem Type Exp    -- BRAM Read
   | SGet   Target StreamInternal Type  -- Pop of a Stream 
   | SPut   StreamInternal Type Exp     -- Push onto a Stream 
@@ -109,34 +132,32 @@ runComputeLocal (Compute c) =
     return code 
     
 
-
 freshName :: Name -> Compute Name
 freshName pre = do
   s <- get
   put (s + 1)
-  return (pre ++ show s) 
-
+  return (pre ++ show s)
 
 
 
 -- TODO: Clean up things 
 class MemoryIO a where
-  mread  :: InterfaceIO -> Expr Address -> Expr a 
-  mwrite :: InterfaceIO -> Expr Address -> Expr a -> Compute ()
+  mread  :: Memory m -> Expr Address -> Expr a 
+  mwrite :: Memory m -> Expr Address -> Expr a -> Compute ()
 
 instance MemoryIO Int where
   mread interface addr =
-    E $ MRead interface TInt (unE addr) 
+    E $ MRead (unM interface) TInt (unE addr) 
     
   mwrite interface addr value =
-    tell $ MWrite interface TInt (unE addr) (unE value) 
+    tell $ MWrite (unM interface) TInt (unE addr) (unE value) 
 
 instance MemoryIO Float where
   mread interface addr =
-    E $ MRead interface TFloat (unE addr) 
+    E $ MRead (unM interface) TFloat (unE addr) 
     
   mwrite interface addr value =
-    tell $ MWrite interface TFloat (unE addr) (unE value) 
+    tell $ MWrite (unM interface) TFloat (unE addr) (unE value) 
 
 
 -------------------------------------------------------------
@@ -144,18 +165,40 @@ instance MemoryIO Float where
 class Emb a where
   typeOf :: a -> Type
   toExp  :: a -> Exp
-  fromExp :: Exp -> a 
+  fromExp :: Exp -> a
 
 instance Emb (Expr Int) where
   typeOf _ = TInt
   toExp = unE
   fromExp = E 
 
+instance Emb (Expr Word) where
+  typeOf _ = TUInt
+  toExp = unE
+  fromExp = E 
+
+
 instance Emb (Expr Bool) where
   typeOf _ = TBool
   toExp = unE
   fromExp = E 
 
+
+------------------------------------------------------------
+-- Declare a variable (scope is as expected by do block hierarchy) 
+declare :: forall a . Emb a => Compute (a)  -- SCOPED TYPE VARIABLE 
+declare =
+  do nom <- freshName "v"
+     tell $ Declare nom (typeOf (undefined :: a)) -- SCOPED TYPE VARIABLE enables this
+     return $ fromExp (Variable nom) 
+
+infixl 1 =: 
+(=:) :: forall a . Emb a => a -> a -> Compute ()
+(=:) left right =
+  case (toExp left,toExp right) of
+    (Variable nom, anything) -> tell $ Assign nom (typeOf right) anything 
+    (_,_) -> error "assign to non-variable" 
+    
 
 ------------------------------------------------------------
 -- Stream get and put 
@@ -174,12 +217,12 @@ sput (SOut si@(StreamInternal _ typ)) (E e) = tell $ SPut si typ e
 ------------------------------------------------------------
 -- Allocate a statically known quantity of local memory.
 -- In other words request use request the use of some amount of BRAM
-bram :: Int -> Compute LocalMem
+bram :: Int -> Compute (Memory Local) 
 bram n =
   do nom <- freshName "bram"
      let lmem = LocalMem nom n
      tell $ LocalMemory lmem
-     return lmem 
+     return $ M lmem
 
 ------------------------------------------------------------
 -- while
