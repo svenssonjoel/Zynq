@@ -21,3 +21,11 @@ pull = Pull
 pullMemory :: MemoryIO a => Memory m -> Expr Address -> Expr Int -> Pull (Expr a)
 pullMemory io addr num = 
   Pull num (\ix -> mread io (addr + ix)) -- Figure out what to do about the pointer arithmetic 
+
+
+
+------------------------------------------------------------
+-- TODO: Pull arrays here have dynamic size.
+--       Which means we need to create loops over them in the target language
+--       if we want to for example fold.
+
