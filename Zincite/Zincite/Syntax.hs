@@ -36,7 +36,7 @@ newtype Memory a = M {unM :: MemoryInternal}
 
 
   
-data Type = TInt | TUInt | TFloat | TBool | TStream Type
+data Type = TInt | TUInt | TFloat | TBool | TStream Type | TTuple [Type]
   deriving Show 
 
 data Value = IntVal Int
@@ -53,8 +53,19 @@ data Exp =
   | BinOp Op2 Exp Exp
   | UnOp  Op1 Exp 
   | MRead MemoryInternal Type Exp -- Read from Interface at address
+  | Tuple [(Exp,Type)] -- Internal representation of tuples
  -- | LRead LocalMem Type Exp    -- Read from local memory at address
     deriving Show 
+
+data Op2 =
+  Add | Sub | Mul | Div | Mod
+  | BitAnd | BitOr | BitXor
+  deriving Show 
+data Op1 =
+  Neg | Not
+  | Min | Max -- Expects argument to be a tuple 
+  deriving Show 
+
 
 newtype Expr a = E {unE :: Exp}
 
@@ -78,18 +89,20 @@ instance Num (Expr Word) where
   signum = undefined
   fromInteger i = E $ Constant $ UIntVal $ fromInteger i
 
-mod :: Expr a -> Expr a -> Expr a
-mod a b = E $ BinOp Mod (unE a) (unE b) 
+-- TODO: Correct constraints on "a" for these functions 
+mod :: Emb a => a -> a -> a 
+mod a b = fromExp $ BinOp Mod (toExp a) (toExp b) 
+
+min :: Emb a =>  (a, a) -> a
+min tup = fromExp $ UnOp Min (toExp tup)
+
+max :: Emb a => (a, a) -> a 
+max tup = fromExp  $ UnOp Max (toExp tup) 
 
 ------------------------------------------------------------
 -- Booleans and bool ops 
 true = E $ Constant $ BoolVal True 
 false = E $ Constant $ BoolVal False
-
-data Op2 = Add | Sub | Mul | Div | Mod | BitAnd | BitOr | BitXor
-  deriving Show 
-data Op1 = Neg | Not 
-  deriving Show 
 
 
 type Target = Name
@@ -181,7 +194,18 @@ instance Emb (Expr Word) where
 instance Emb (Expr Bool) where
   typeOf _ = TBool
   toExp = unE
-  fromExp = E 
+  fromExp = E
+
+instance (Emb a, Emb b) => Emb (a,b) where
+  typeOf (a,b) = TTuple [typeOf a, typeOf b]
+  toExp  (a,b) = Tuple [(toExp a, typeOf a), (toExp b, typeOf b)]
+  fromExp (Tuple [(e1,t1),(e2,t2)]) = (fromExp e1, fromExp e2) 
+
+instance (Emb a, Emb b, Emb c) => Emb (a,b,c) where
+  typeOf (a,b,c) = TTuple [typeOf a, typeOf b,typeOf c]
+  toExp  (a,b,c) = Tuple [(toExp a, typeOf a), (toExp b, typeOf b), (toExp c, typeOf c)]
+  fromExp (Tuple [(e1,t1),(e2,t2), (e3,t3)]) = (fromExp e1, fromExp e2, fromExp e3) 
+  
 
 
 ------------------------------------------------------------
