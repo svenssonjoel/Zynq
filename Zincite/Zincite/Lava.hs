@@ -5,7 +5,7 @@
 module Zincite.Lava where
 
 
-import Zincite.Syntax
+import Zincite.Syntax hiding (div) 
 
 import Prelude hiding (min,max) 
 

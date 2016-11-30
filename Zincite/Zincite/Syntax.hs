@@ -93,6 +93,9 @@ instance Num (Expr Word) where
 mod :: Emb a => a -> a -> a 
 mod a b = fromExp $ BinOp Mod (toExp a) (toExp b) 
 
+div :: Emb a => a -> a -> a 
+div a b = fromExp $ BinOp Div (toExp a) (toExp b) 
+
 min :: Emb a =>  (a, a) -> a
 min tup = fromExp $ UnOp Min (toExp tup)
 
