@@ -14,9 +14,9 @@ import Prelude hiding (mod,div)
 -- TODO Implement a circular buffer abstraction on top of bram
 -- TODO Needs a way to handle counters (nicely) 
 
-streamsMedian :: StreamIn Int -> StreamOut Int -> Compute ()
-streamsMedian in1 out =
-  do lmem <- bram (8*4) -- 10 * 4byte quantities
+streamMedian :: StreamIn Int -> StreamOut Int -> Compute ()
+streamMedian in1 out =
+  do lmem <- bram (8*4) -- 8 * 4byte quantities
      (i :: Expr Address) <- declare
      i =: 0
      forever $ 
@@ -34,3 +34,12 @@ streamsMedian in1 out =
           i =: (i + 1) `mod` 10   -- Hide much of this in higher level abstractions
           sput out result  
  
+
+
+
+-- This is just to be able to view the AST
+streamMedianAST =
+  let in1 = (SIn (StreamInternal "s1" TInt))
+      out = (SOut (StreamInternal "s3" TInt))
+  in snd $ runCompute $ streamMedian in1 out   
+
