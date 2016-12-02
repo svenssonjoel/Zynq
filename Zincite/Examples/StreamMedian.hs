@@ -31,7 +31,7 @@ streamMedian in1 out =
           let sorted = sortB 3 twosort $ listFromMem lmem 0 8
               result = (sorted !! 3 + sorted !! 4) `div` 2 -- or go float ? 
           
-          i =: (i + 1) `mod` 10   -- Hide much of this in higher level abstractions
+          i =: (i + 1) `mod` 8   -- Hide much of this in higher level abstractions
           sput out result  
  
 
