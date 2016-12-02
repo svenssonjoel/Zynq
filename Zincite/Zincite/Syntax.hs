@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 
 module Zincite.Syntax where 
 
@@ -56,7 +57,7 @@ data ExpNode s =
   | MRead MemoryInternal Type s -- Read from Interface at address
   | Tuple [(s,Type)] -- Internal representation of tuples
  -- | LRead LocalMem Type Exp    -- Read from local memory at address
-    deriving Show
+  deriving (Functor, Foldable, Traversable, Show)
 
 constantE :: Value -> Exp
 constantE v = Exp $ Constant v
@@ -141,34 +142,36 @@ type Target = Name
            
 -- statment language
 -- TODO: Consider making MRead, LRead, SGet (and maybe others part of the expression lang) 
-data Code =
+data Code e =
     Nil
   | Declare Name Type                  -- Variable declaration
  -- | MRead  Target InterfaceIO Type Exp -- DRAM Read 
-  | MWrite MemoryInternal Type Exp Exp    -- DRAM Write 
+  | MWrite MemoryInternal Type e e    -- DRAM Write 
   | LocalMemory MemoryInternal               -- Request use of BRAM 
 --  | LWrite MemoryInternal Type Exp Exp       -- BRAM Write
 --  | LRead  Target LocalMem Type Exp    -- BRAM Read
   | SGet   Target StreamInternal Type  -- Pop of a Stream 
-  | SPut   StreamInternal Type Exp     -- Push onto a Stream 
-  | Assign Target Type Exp             -- Assignment to variable 
-  | Seq    Code Code                   -- sequencing of operations
-  | While  Name Code Exp
+  | SPut   StreamInternal Type e     -- Push onto a Stream 
+  | Assign Target Type e             -- Assignment to variable 
+  | Seq    (Code e) (Code e)          -- sequencing of operation
+  | While  Name (Code e) e
     deriving Show 
 
-instance Monoid Code where
+instance Monoid (Code e) where
   mempty = Nil
   mappend Nil b = b
   mappend a Nil = a 
   mappend a b = a `Seq` b
  
-newtype Compute a = Compute (StateT Int (Writer Code) a )
-  deriving (Functor, Applicative, Monad, MonadState Int, MonadWriter Code)
+newtype Compute a = Compute (StateT Int (Writer (Code Exp) ) a )
+  deriving (Functor, Applicative, Monad, MonadState Int, MonadWriter (Code (Exp)))
 
-runCompute :: Compute a -> ((a, Int),Code) 
+type CodeE = Code Exp            
+
+runCompute :: Compute a -> ((a, Int),CodeE) 
 runCompute (Compute c) = runWriter $ runStateT c 0 
 
-runComputeLocal :: Compute () -> Compute Code
+runComputeLocal :: Compute () -> Compute CodeE
 runComputeLocal (Compute c) =
   do
     s <- get

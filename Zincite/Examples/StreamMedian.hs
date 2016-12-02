@@ -41,5 +41,11 @@ streamMedian in1 out =
 streamMedianAST =
   let in1 = (SIn (StreamInternal "s1" TInt))
       out = (SOut (StreamInternal "s3" TInt))
-  in snd $ runCompute $ streamMedian in1 out   
+  in snd $ runCompute $ streamMedian in1 out
+
+
+streamMedianGraph =
+  let in1 = (SIn (StreamInternal "s1" TInt))
+      out = (SOut (StreamInternal "s3" TInt))
+  in codeGraph $ snd $ runCompute $ streamMedian in1 out     
 
