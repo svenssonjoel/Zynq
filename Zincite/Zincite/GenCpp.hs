@@ -58,5 +58,39 @@ expToGraph = reifyGraph
 
 
 
+------------------------------------------------------------
+-- initial experiment, next step should build a new abstract
+-- representation of "C++"-programs and pass that onwards
+-- to CPU and FPGA backend code generators. 
+
+include s = "#include <"++s++">\n" 
+
+default_includes = include "hls_stream.h" 
+
+pragma_hls_interface s = "#pragma HLS INTERFACE " ++ s ++ "\n"
+
+
+------------------------------------------------------------
+-- Goal
+genCpp :: Code (Graph ExpNode) -> String
+genCpp = undefined
+
+
+
+------------------------------------------------------------
+-- Class Compile (move later)
+
+class Compile a where
+  compile :: a -> String
+
+-- Create instances for Compute () 
+--                      StreamIn a -> Compute ()
+--                      StreamOut a -> Compute ()
+--                      StreamIn a -> StreamOut b -> Compute ()
+--                      and so on...
+
+
+
+
 
 
