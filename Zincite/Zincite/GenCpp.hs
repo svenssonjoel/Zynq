@@ -2,12 +2,17 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-} 
 
 module Zincite.GenCpp where
 
 import Zincite.Syntax
 
 import Data.Reify
+
+import Control.Monad.State
 
 ------------------------------------------------------------
 -- Reify graph
@@ -69,19 +74,71 @@ default_includes = include "hls_stream.h"
 
 pragma_hls_interface s = "#pragma HLS INTERFACE " ++ s ++ "\n"
 
+pType :: Type -> String
+pType TInt = "int" 
+
 
 ------------------------------------------------------------
 -- Goal
-genCpp :: Code (Graph ExpNode) -> String
+genCpp :: Code (Graph ExpNode) -> Gen String
 genCpp = undefined
 
+type Gen a = State Int a 
 
+evalGen :: Gen a -> a 
+evalGen = flip evalState 0
+
+newIdentifier :: Gen Int
+newIdentifier = do {s <- get; put (s+1); return s}
 
 ------------------------------------------------------------
 -- Class Compile (move later)
 
-class Compile a where
-  compile :: a -> String
+class ReifyType a => Compile a where
+  compile :: a -> Gen String
+
+-- Reify base types
+class ReifyBase a where
+  baseType :: a -> Type
+
+-- Repeat many times ;) 
+instance ReifyBase Int where
+  baseType _ = TInt
+
+
+-- Create the argument list
+class ReifyType a where
+  reifyType :: a -> Gen [String]
+
+
+instance ReifyType (Compute a) where
+  reifyType _ = return []
+
+instance (ReifyBase a, ReifyType b) => ReifyType (StreamIn a -> b) where
+  reifyType f =
+    do
+      i <- newIdentifier
+      let v_nom = "instream" ++ show i 
+          s_in = SIn (StreamInternal v_nom t) 
+          rest = f s_in
+          cppArg = "stream<"++ pType t ++ "> &"++v_nom
+      vars <- reifyType rest
+      return $ cppArg  : vars 
+    where t = baseType (undefined :: a) 
+
+instance (ReifyBase a, ReifyType b) => ReifyType (StreamOut a -> b) where
+  reifyType f =
+    do
+      i <- newIdentifier
+      let v_nom = "outstream" ++ show i 
+          s_in = SOut (StreamInternal v_nom t) 
+          rest = f s_in
+          cppArg = "stream<"++ pType t ++ "> &"++v_nom
+      vars <- reifyType rest
+      return $ cppArg : vars 
+    where t = baseType (undefined :: a) 
+
+
 
 -- Create instances for Compute () 
 --                      StreamIn a -> Compute ()
