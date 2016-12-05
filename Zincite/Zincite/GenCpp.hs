@@ -92,12 +92,17 @@ newIdentifier :: Gen Int
 newIdentifier = do {s <- get; put (s+1); return s}
 
 ------------------------------------------------------------
--- compile function 
+-- compile function
+-- TODO: Generalize and Improve ! 
 
 
 compile :: ReifyType a => a -> Gen String
-compile = undefined 
-
+compile a = 
+  do (args, c) <- reifyType a
+     id <- newIdentifier
+     let name = "f" ++ show id
+     -- TODO: Generate the function (using args and c) 
+     return undefined 
 
 -- Reify base types
 class ReifyBase a where
@@ -110,11 +115,15 @@ instance ReifyBase Int where
 
 -- Create the argument list
 class ReifyType a where
-  reifyType :: a -> Gen [String]
+  reifyType :: a -> Gen ([String], Code (Graph ExpNode) )
 
 
 instance ReifyType (Compute a) where
-  reifyType _ = return []
+  reifyType c =
+    do
+      let ((a,i),code) = runCompute c 
+      code' <- liftIO $ codeGraph code
+      return ([], code') 
 
 instance (ReifyBase a, ReifyType b) => ReifyType (StreamIn a -> b) where
   reifyType f =
@@ -124,8 +133,8 @@ instance (ReifyBase a, ReifyType b) => ReifyType (StreamIn a -> b) where
           s_in = SIn (StreamInternal v_nom t) 
           rest = f s_in
           cppArg = "stream<"++ pType t ++ "> &"++v_nom
-      vars <- reifyType rest
-      return $ cppArg  : vars 
+      (vars,c) <- reifyType rest
+      return $ (cppArg  : vars, c)  
     where t = baseType (undefined :: a) 
 
 instance (ReifyBase a, ReifyType b) => ReifyType (StreamOut a -> b) where
@@ -136,8 +145,8 @@ instance (ReifyBase a, ReifyType b) => ReifyType (StreamOut a -> b) where
           s_in = SOut (StreamInternal v_nom t) 
           rest = f s_in
           cppArg = "stream<"++ pType t ++ "> &"++v_nom
-      vars <- reifyType rest
-      return $ cppArg : vars 
+      (vars,c) <- reifyType rest
+      return $ (cppArg : vars, c) 
     where t = baseType (undefined :: a) 
 
 
