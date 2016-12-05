@@ -83,19 +83,21 @@ pType TInt = "int"
 genCpp :: Code (Graph ExpNode) -> Gen String
 genCpp = undefined
 
-type Gen a = State Int a 
+type Gen a = StateT Int IO a 
 
-evalGen :: Gen a -> a 
-evalGen = flip evalState 0
+evalGen :: Gen a -> IO a 
+evalGen = flip evalStateT 0
 
 newIdentifier :: Gen Int
 newIdentifier = do {s <- get; put (s+1); return s}
 
 ------------------------------------------------------------
--- Class Compile (move later)
+-- compile function 
 
-class ReifyType a => Compile a where
-  compile :: a -> Gen String
+
+compile :: ReifyType a => a -> Gen String
+compile = undefined 
+
 
 -- Reify base types
 class ReifyBase a where
