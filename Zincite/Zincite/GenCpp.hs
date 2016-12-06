@@ -101,8 +101,15 @@ compile a =
   do (args, c) <- reifyType a
      id <- newIdentifier
      let name = "f" ++ show id
+         func = generateFunc name args "" 
      -- TODO: Generate the function (using args and c) 
-     return undefined 
+     return func 
+
+generateFunc nom args body =
+  "void " ++ nom ++ "(" ++ genArgs args ++ "){\n" ++ body ++ "}\n"
+  where genArgs [] = ""
+        genArgs [x] = x
+        genArgs (x:y:xs) = x ++ "," ++ genArgs (y:xs)
 
 -- Reify base types
 class ReifyBase a where
