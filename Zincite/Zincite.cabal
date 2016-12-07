@@ -48,7 +48,9 @@ cabal-version:       >=1.10
 
 library
   -- Modules exported by the library.
-  exposed-modules: Zincite.GenCpp
+  exposed-modules: Zincite.Backend.HLS.GenCpp
+                 , Zincite.Backend.HLS
+                 , Zincite.Backend.Graph 
                  , Zincite.Syntax
                  , Zincite.Pull
                  , Zincite.Lava 

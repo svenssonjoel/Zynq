@@ -4,7 +4,7 @@
 module StreamMedian where
 
 import Zincite.Syntax
-import Zincite.GenCpp
+import Zincite.Backend.HLS
 import Zincite.Lava
 
 import Prelude hiding (mod,div)
