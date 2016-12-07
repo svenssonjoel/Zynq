@@ -154,7 +154,7 @@ data Code e =
   | SPut   StreamInternal Type e     -- Push onto a Stream 
   | Assign Target Type e             -- Assignment to variable 
   | Seq    (Code e) (Code e)          -- sequencing of operation
-  | While  Name (Code e) e
+  | While  Name (Code e) e           -- Name bodyCode cond
     deriving Show 
 
 instance Monoid (Code e) where
