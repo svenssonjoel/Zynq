@@ -65,7 +65,7 @@ newIdentifier = do {s <- get; put (s+1); return s}
 
 ------------------------------------------------------------
 -- compile function
--- TODO: Generalize and Improve ! 
+-- TODO: Generalize and Improve !
 
 
 compile :: ReifyType a => a -> Gen String
@@ -84,6 +84,9 @@ generateFunc nom args body =
   where genArgs [] = ""
         genArgs [x] = x
         genArgs (x:y:xs) = x ++ "," ++ genArgs (y:xs)
+
+
+-- TODO: COme up with a way to break out and generalize ReifyType. 
 
 -- Reify base types
 class ReifyBase a where
