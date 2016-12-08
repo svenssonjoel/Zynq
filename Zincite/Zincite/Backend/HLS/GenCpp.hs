@@ -61,6 +61,11 @@ pExp identifier (Graph g res) =  snd $ pp M.empty g res
                           var = ident res
                           env' = M.insert res var env2
                       in  (env',(pType t ++ " " ++ var ++ " = " ++ r1 ++ pOp  op ++ r2 ++ ";\n",var))
+                    (UnOp op n1 t) -> -- TODO Min Max needs special case (Or take the easy way out!) 
+                      let (env1,(s1,r1)) = pp env g n1
+                          var = ident res
+                          env' = M.insert res var env1
+                      in  (env',(pType t ++ " " ++ var ++ " = " ++ pOp  op ++ r1 ++ ";\n",var))      
                     -- TODO:REPEAT MANY TIMES 
                 Nothing -> error "FAULTY GRAPH" 
 
