@@ -20,21 +20,21 @@ codeGraph c =
   case c of
     Nil -> return Nil
     Declare nom t -> return $ Declare nom t
-    MWrite m t e1 e2 -> 
+    MWrite m e1 e2 t -> 
       do
         e1' <- expToGraph e1
         e2' <- expToGraph e2
-        return $ MWrite m t e1' e2'
+        return $ MWrite m e1' e2' t
     LocalMemory m -> return $ LocalMemory m
     SGet targ s t -> return $ SGet targ s t
-    SPut s t e ->
+    SPut s e t ->
       do
         e' <- expToGraph e 
-        return $ SPut s t e'
-    Assign targ t e ->
+        return $ SPut s e' t
+    Assign targ e t ->
       do
         e' <- expToGraph e
-        return $ Assign targ t e'
+        return $ Assign targ e' t
     Seq c1 c2 ->
       do
        c1' <- codeGraph c1

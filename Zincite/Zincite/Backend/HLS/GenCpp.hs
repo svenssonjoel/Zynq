@@ -13,6 +13,9 @@ import Zincite.Backend.BaseType
 import Zincite.Syntax
 
 import Data.Reify
+import Data.List
+
+import qualified Data.Map as M
 
 import Control.Monad.State
 
@@ -28,13 +31,40 @@ default_includes = include "hls_stream.h"
 pragma_hls_interface s = "#pragma HLS INTERFACE " ++ s ++ "\n"
 
 pType :: Type -> String
-pType TInt = "int" 
+pType TInt = "int"
+
+pOp2 :: Op2 -> String -- TODO: Combine Op2 and Op1...
+pOp2 Add = " + "
+pOp2 Sub = " - "
+pOp2 Mul = " * "
+pOp2 Div = " / "
+pOp2 Mod = " % "
+-- TODO: ADD MORE 
 
 -- TODO: May need to produce both a string and a name
 --       that contains the final answer. 
-pExp :: Graph ExpNode -> Gen String 
-pExp _ = return "EXPRESSION" 
+pExp :: Int -> Graph ExpNode -> (String,String) -- code,result variable 
+pExp identifier (Graph g res) =  snd $ pp M.empty g res 
+  where ident :: Int -> String 
+        ident i = "v" ++ show identifier ++ "_" ++ show i
 
+        pp env g res =
+          case M.lookup res env of
+            Just v -> (env,("",v))
+            Nothing -> 
+              case lookup res g of
+                Just node -> 
+                  case node of  
+                    (BinOp op n1 n2 t) ->
+                      let (env1,(s1,r1)) = pp env g n1
+                          (env2,(s2,r2)) = pp env1 g n2
+                          var = ident res
+                          env' = M.insert res var env2
+                      in  (env',(pType t ++ " " ++ var ++ " = " ++ r1 ++ pOp2  op ++ r2 ++ ";\n",var))
+                    -- TODO:REPEAT MANY TIMES 
+                Nothing -> error "FAULTY GRAPH" 
+
+        
 ------------------------------------------------------------
 -- Goal
 genCpp :: Code (Graph ExpNode) -> Gen String
@@ -46,7 +76,8 @@ genCpp (Assign nom t e) = return $ "aassignment"
 genCpp (While name c e) = -- I dont really need the name ?? 
   do
     c' <- genCpp c
-    e' <- pExp e 
+    ident <- newIdentifier 
+    let (e',res) = pExp ident e 
     let loop = "while (" ++ e' ++"){\n" ++ c' ++ "}\n"
     return loop
 genCpp (SGet targ (StreamInternal stream t0) t1) =

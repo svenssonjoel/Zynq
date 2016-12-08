@@ -50,11 +50,11 @@ data Value = IntVal Int
 -- expression language
 -- TODO: Support for Tuples 
 data ExpNode s =
-  Constant Value
-  | Variable Name 
-  | BinOp Op2 s s
-  | UnOp  Op1 s 
-  | MRead MemoryInternal Type s -- Read from Interface at address
+  Constant Value 
+  | Variable Name Type
+  | BinOp Op2 s s Type
+  | UnOp  Op1 s Type
+  | MRead MemoryInternal s Type -- Read from Interface at address
   | Tuple [(s,Type)] -- Internal representation of tuples
  -- | LRead LocalMem Type Exp    -- Read from local memory at address
   deriving (Functor, Foldable, Traversable, Show)
@@ -62,17 +62,17 @@ data ExpNode s =
 constantE :: Value -> Exp
 constantE v = Exp $ Constant v
 
-variableE :: Name -> Exp
-variableE nom = Exp $ Variable nom
+variableE :: Name -> Type -> Exp
+variableE nom t = Exp $ Variable nom t 
 
-binOpE :: Op2 -> Exp -> Exp -> Exp
-binOpE op e1 e2 = Exp $ BinOp op e1 e2
+binOpE :: Op2 -> Exp -> Exp -> Type -> Exp
+binOpE op e1 e2 t = Exp $ BinOp op e1 e2 t 
 
-unOpE :: Op1 -> Exp -> Exp
-unOpE op e1 = Exp $ UnOp op e1
+unOpE :: Op1 -> Exp -> Type -> Exp
+unOpE op e1 t = Exp $ UnOp op e1 t
 
-mreadE :: MemoryInternal -> Type -> Exp -> Exp
-mreadE m t e = Exp $ MRead m t e
+mreadE :: MemoryInternal -> Exp -> Type -> Exp
+mreadE m e t = Exp $ MRead m e t
 
 tupleE :: [(Exp,Type)] -> Exp
 tupleE ls = Exp $ Tuple ls 
@@ -101,33 +101,33 @@ expr e = E $ Exp e
 
 
 instance Num (Expr Int) where
-  (+) a b = fromExp $ binOpE Add (unE a) (unE b)
-  (-) a b = fromExp $ binOpE Sub (unE a) (unE b)
-  (*) a b = fromExp $ binOpE Mul (unE a) (unE b)
+  (+) a b = fromExp $ binOpE Add (unE a) (unE b) TInt 
+  (-) a b = fromExp $ binOpE Sub (unE a) (unE b) TInt 
+  (*) a b = fromExp $ binOpE Mul (unE a) (unE b) TInt
   abs = undefined
   signum = undefined
   fromInteger i = fromExp $ constantE $ IntVal $ fromInteger i
 
 instance Num (Expr Word) where
-  (+) a b = fromExp $ binOpE Add (unE a) (unE b)
-  (-) a b = fromExp $ binOpE Sub (unE a) (unE b)
-  (*) a b = fromExp $ binOpE Mul (unE a) (unE b)
+  (+) a b = fromExp $ binOpE Add (unE a) (unE b) TUInt
+  (-) a b = fromExp $ binOpE Sub (unE a) (unE b) TUInt 
+  (*) a b = fromExp $ binOpE Mul (unE a) (unE b) TUInt
   abs = undefined
   signum = undefined
   fromInteger i = fromExp $ constantE $ UIntVal $ fromInteger i
 
 -- TODO: Correct constraints on "a" for these functions 
 mod :: Emb a => a -> a -> a 
-mod a b = fromExp $ binOpE Mod (toExp a) (toExp b) 
+mod a b = fromExp $ binOpE Mod (toExp a) (toExp b) (typeOf a) 
 
 div :: Emb a => a -> a -> a 
-div a b = fromExp $ binOpE Div (toExp a) (toExp b) 
+div a b = fromExp $ binOpE Div (toExp a) (toExp b) (typeOf a) 
 
-min :: Emb a =>  (a, a) -> a
-min tup = fromExp $ unOpE Min (toExp tup)
+min :: forall a. Emb a =>  (a, a) -> a
+min tup = fromExp $ unOpE Min (toExp tup) (typeOf (undefined :: a))
 
-max :: Emb a => (a, a) -> a 
-max tup = fromExp  $ unOpE Max (toExp tup) 
+max :: forall a. Emb a => (a, a) -> a 
+max tup = fromExp  $ unOpE Max (toExp tup) (typeOf (undefined :: a))  
 
 ------------------------------------------------------------
 -- Booleans and bool ops
@@ -146,13 +146,13 @@ data Code e =
     Nil
   | Declare Name Type                  -- Variable declaration
  -- | MRead  Target InterfaceIO Type Exp -- DRAM Read 
-  | MWrite MemoryInternal Type e e    -- DRAM Write 
+  | MWrite MemoryInternal  e e Type   -- DRAM Write 
   | LocalMemory MemoryInternal               -- Request use of BRAM 
 --  | LWrite MemoryInternal Type Exp Exp       -- BRAM Write
 --  | LRead  Target LocalMem Type Exp    -- BRAM Read
   | SGet   Target StreamInternal Type  -- Pop of a Stream 
-  | SPut   StreamInternal Type e     -- Push onto a Stream 
-  | Assign Target Type e             -- Assignment to variable 
+  | SPut   StreamInternal e Type     -- Push onto a Stream 
+  | Assign Target  e Type            -- Assignment to variable 
   | Seq    (Code e) (Code e)          -- sequencing of operation
   | While  Name (Code e) e           -- Name bodyCode cond
     deriving Show 
@@ -195,17 +195,17 @@ class MemoryIO a where
 
 instance MemoryIO Int where
   mread interface addr =
-    fromExp $ mreadE (unM interface) TInt (unE addr) 
+    fromExp $ mreadE (unM interface) (unE addr) TInt 
     
   mwrite interface addr value =
-    tell $ MWrite (unM interface) TInt (unE addr) (unE value) 
+    tell $ MWrite (unM interface) (unE addr) (unE value) TInt 
 
 instance MemoryIO Float where
   mread interface addr =
-    fromExp $ mreadE (unM interface) TFloat (unE addr) 
+    fromExp $ mreadE (unM interface) (unE addr) TFloat 
     
   mwrite interface addr value =
-    tell $ MWrite (unM interface) TFloat (unE addr) (unE value) 
+    tell $ MWrite (unM interface) (unE addr) (unE value) TFloat
 
 
 -------------------------------------------------------------
@@ -254,13 +254,13 @@ declare :: forall a . Emb a => Compute (a)  -- SCOPED TYPE VARIABLE
 declare =
   do nom <- freshName "v"
      tell $ Declare nom (typeOf (undefined :: a)) -- SCOPED TYPE VARIABLE enables this
-     return $ fromExp (variableE nom) 
+     return $ fromExp (variableE nom (typeOf ( undefined :: a)))
 
 infixl 1 =: 
 (=:) :: forall a . Emb a => a -> a -> Compute ()
 (=:) left right =
-  case (toExp left,toExp right) of
-    (Exp (Variable nom), anything) -> tell $ Assign nom (typeOf right) anything 
+  case (toExp left,toExp right) of 
+    (Exp (Variable nom t), anything) -> tell $ Assign nom anything (typeOf right) 
     (_,_) -> error "assign to non-variable" 
     
 
@@ -270,13 +270,13 @@ sget :: Emb (Expr a) => StreamIn a -> Compute (Expr a)
 sget (SIn si@(StreamInternal _ typ)) =
   do
     nom <- freshName "s"
-    let var = fromExp $ variableE nom
+    let var = fromExp $ variableE nom typ
     
     tell $ SGet nom si typ
     return var
 
 sput :: StreamOut a -> Expr a -> Compute ()
-sput (SOut si@(StreamInternal _ typ)) (E e) = tell $ SPut si typ e 
+sput (SOut si@(StreamInternal _ typ)) (E e) = tell $ SPut si e typ
 
 ------------------------------------------------------------
 -- Allocate a statically known quantity of local memory.
@@ -294,11 +294,11 @@ while :: (Emb (Expr a)) => (Expr a -> Expr Bool) -> (Expr a -> Compute ()) -> Ex
 while cond body init =
   do
     nom <- freshName "tmp" 
-    let var  = fromExp $ variableE $ nom
+    let var  = fromExp $ variableE nom (typeOf init) -- same type as init 
         bodyComp = body var
         condExpr = cond var
     bodyCode <- runComputeLocal bodyComp
-    tell $ Assign nom (typeOf init) (toExp init)      -- HACK 
+    tell $ Assign nom (toExp init) (typeOf init)   
     tell $ While nom bodyCode (unE condExpr)  
 
 ------------------------------------------------------------
