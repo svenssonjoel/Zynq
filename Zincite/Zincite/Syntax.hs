@@ -54,6 +54,7 @@ data ExpNode s =
   | Variable Name Type
   | BinOp Op s s Type
   | UnOp  Op s Type
+  | CFunc Name [(s,Type)] -- EASY way out for Min max and other C functions we may want to call
   | MRead MemoryInternal s Type -- Read from Interface at address
   | Tuple [(s,Type)] -- Internal representation of tuples
  -- | LRead LocalMem Type Exp    -- Read from local memory at address
