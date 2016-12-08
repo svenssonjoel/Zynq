@@ -8,7 +8,8 @@
 
 module Zincite.Backend.HLS.GenCpp where
 
-import Zincite.Backend.Graph 
+import Zincite.Backend.Graph
+import Zincite.Backend.BaseType
 import Zincite.Syntax
 
 import Data.Reify
@@ -86,17 +87,6 @@ generateFunc nom args body =
         genArgs (x:y:xs) = x ++ "," ++ genArgs (y:xs)
 
 
--- TODO: COme up with a way to break out and generalize ReifyType. 
-
--- Reify base types
-class ReifyBase a where
-  baseType :: a -> Type
-
--- Repeat many times ;) 
-instance ReifyBase Int where
-  baseType _ = TInt
-
-
 -- Create the argument list
 class ReifyType a where
   reifyType :: a -> Gen ([String], Code (Graph ExpNode) )
@@ -109,7 +99,7 @@ instance ReifyType (Compute a) where
       code' <- liftIO $ codeGraph code
       return ([], code') 
 
-instance (ReifyBase a, ReifyType b) => ReifyType (StreamIn a -> b) where
+instance (BaseType a, ReifyType b) => ReifyType (StreamIn a -> b) where
   reifyType f =
     do
       i <- newIdentifier
@@ -121,7 +111,7 @@ instance (ReifyBase a, ReifyType b) => ReifyType (StreamIn a -> b) where
       return $ (cppArg  : vars, c)  
     where t = baseType (undefined :: a) 
 
-instance (ReifyBase a, ReifyType b) => ReifyType (StreamOut a -> b) where
+instance (BaseType a, ReifyType b) => ReifyType (StreamOut a -> b) where
   reifyType f =
     do
       i <- newIdentifier

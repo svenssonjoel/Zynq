@@ -50,7 +50,8 @@ library
   -- Modules exported by the library.
   exposed-modules: Zincite.Backend.HLS.GenCpp
                  , Zincite.Backend.HLS
-                 , Zincite.Backend.Graph 
+                 , Zincite.Backend.Graph
+                 , Zincite.Backend.BaseType 
                  , Zincite.Syntax
                  , Zincite.Pull
                  , Zincite.Lava 
