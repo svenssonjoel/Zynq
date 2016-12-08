@@ -52,8 +52,8 @@ data Value = IntVal Int
 data ExpNode s =
   Constant Value 
   | Variable Name Type
-  | BinOp Op2 s s Type
-  | UnOp  Op1 s Type
+  | BinOp Op s s Type
+  | UnOp  Op s Type
   | MRead MemoryInternal s Type -- Read from Interface at address
   | Tuple [(s,Type)] -- Internal representation of tuples
  -- | LRead LocalMem Type Exp    -- Read from local memory at address
@@ -65,10 +65,10 @@ constantE v = Exp $ Constant v
 variableE :: Name -> Type -> Exp
 variableE nom t = Exp $ Variable nom t 
 
-binOpE :: Op2 -> Exp -> Exp -> Type -> Exp
+binOpE :: Op -> Exp -> Exp -> Type -> Exp
 binOpE op e1 e2 t = Exp $ BinOp op e1 e2 t 
 
-unOpE :: Op1 -> Exp -> Type -> Exp
+unOpE :: Op -> Exp -> Type -> Exp
 unOpE op e1 t = Exp $ UnOp op e1 t
 
 mreadE :: MemoryInternal -> Exp -> Type -> Exp
@@ -80,13 +80,11 @@ tupleE ls = Exp $ Tuple ls
 data Exp = Exp {expNode :: ExpNode Exp}
   deriving Show
 
-data Op2 =
+data Op =
   Add | Sub | Mul | Div | Mod
   | BitAnd | BitOr | BitXor
-  deriving Show 
-data Op1 =
-  Neg | Not
-  | Min | Max -- Expects argument to be a tuple 
+  | Neg | Not
+  | Min | Max -- Expects argument to be a tuple  
   deriving Show 
 
 newtype Expr a = E {unE :: Exp}

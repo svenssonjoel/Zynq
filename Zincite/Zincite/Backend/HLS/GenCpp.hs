@@ -33,12 +33,12 @@ pragma_hls_interface s = "#pragma HLS INTERFACE " ++ s ++ "\n"
 pType :: Type -> String
 pType TInt = "int"
 
-pOp2 :: Op2 -> String -- TODO: Combine Op2 and Op1...
-pOp2 Add = " + "
-pOp2 Sub = " - "
-pOp2 Mul = " * "
-pOp2 Div = " / "
-pOp2 Mod = " % "
+pOp :: Op -> String -- TODO: Combine Op2 and Op1...
+pOp Add = " + "
+pOp Sub = " - "
+pOp Mul = " * "
+pOp Div = " / "
+pOp Mod = " % "
 -- TODO: ADD MORE 
 
 -- TODO: May need to produce both a string and a name
@@ -60,7 +60,7 @@ pExp identifier (Graph g res) =  snd $ pp M.empty g res
                           (env2,(s2,r2)) = pp env1 g n2
                           var = ident res
                           env' = M.insert res var env2
-                      in  (env',(pType t ++ " " ++ var ++ " = " ++ r1 ++ pOp2  op ++ r2 ++ ";\n",var))
+                      in  (env',(pType t ++ " " ++ var ++ " = " ++ r1 ++ pOp  op ++ r2 ++ ";\n",var))
                     -- TODO:REPEAT MANY TIMES 
                 Nothing -> error "FAULTY GRAPH" 
 
