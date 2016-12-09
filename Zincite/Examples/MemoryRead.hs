@@ -3,7 +3,7 @@
 module MemoryRead where
 
 import Zincite.Syntax
-import Zincite.GenCpp
+import Zincite.Backend.HLS
 
 addMem :: Memory Global -> Compute ()
 addMem io =

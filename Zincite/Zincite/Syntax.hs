@@ -188,23 +188,31 @@ freshName pre = do
 
 
 -- TODO: Clean up things 
-class MemoryIO a where
-  mread  :: Memory m -> Expr Address -> Expr a 
-  mwrite :: Memory m -> Expr Address -> Expr a -> Compute ()
+-- class MemoryIO a where
+--   mread  :: Memory m -> Expr Address -> Expr a 
+--   mwrite :: Memory m -> Expr Address -> Expr a -> Compute ()
 
-instance MemoryIO Int where
-  mread interface addr =
-    fromExp $ mreadE (unM interface) (unE addr) TInt 
+-- instance MemoryIO Int where
+--   mread interface addr =
+--     fromExp $ mreadE (unM interface) (unE addr) TInt 
     
-  mwrite interface addr value =
-    tell $ MWrite (unM interface) (unE addr) (unE value) TInt 
+--   mwrite interface addr value =
+--     tell $ MWrite (unM interface) (unE addr) (unE value) TInt 
 
-instance MemoryIO Float where
-  mread interface addr =
-    fromExp $ mreadE (unM interface) (unE addr) TFloat 
+-- instance MemoryIO Float where
+--   mread interface addr =
+--     fromExp $ mreadE (unM interface) (unE addr) TFloat 
     
-  mwrite interface addr value =
-    tell $ MWrite (unM interface) (unE addr) (unE value) TFloat
+--   mwrite interface addr value =
+--     tell $ MWrite (unM interface) (unE addr) (unE value) TFloat
+
+mread  :: forall a m. Emb a => Memory m -> Expr Address -> a 
+mread interface addr =
+  fromExp $ mreadE (unM interface) (unE addr) (typeOf (undefined :: a))
+
+mwrite :: forall a m. Emb a => Memory m -> Expr Address -> a -> Compute ()  
+mwrite interface addr value =
+  tell $ MWrite (unM interface) (unE addr) (toExp value) (typeOf (undefined :: a))
 
 
 -------------------------------------------------------------

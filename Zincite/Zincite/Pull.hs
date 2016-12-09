@@ -18,7 +18,7 @@ pull :: Expr Int -> (Expr Address -> a) -> Pull a
 pull = Pull
 
 
-pullMemory :: MemoryIO a => Memory m -> Expr Address -> Expr Int -> Pull (Expr a)
+pullMemory :: Emb a => Memory m -> Expr Address -> Expr Int -> Pull a
 pullMemory io addr num = 
   Pull num (\ix -> mread io (addr + ix)) -- Figure out what to do about the pointer arithmetic 
 

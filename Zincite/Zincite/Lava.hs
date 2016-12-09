@@ -12,7 +12,7 @@ import Prelude hiding (min,max)
 
 ------------------------------------------------------------
 -- Convert a consequtive words of memory to a list of memory accesses
-listFromMem :: MemoryIO a => Memory m -> Expr Address -> Int -> [Expr a]
+listFromMem :: Emb a => Memory m -> Expr Address -> Int -> [a]
 listFromMem mem addr n =
   [ mread mem (fromIntegral ix)|  ix <- [0..(n-1)]] 
 

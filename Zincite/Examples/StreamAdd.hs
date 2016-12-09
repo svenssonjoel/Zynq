@@ -3,7 +3,7 @@
 module StreamAdd where
 
 import Zincite.Syntax
-import Zincite.GenCpp
+import Zincite.Backend.HLS
 
 addStreams :: StreamIn Int -> StreamIn Int -> StreamOut Int -> Compute ()
 addStreams in1 in2 out =
