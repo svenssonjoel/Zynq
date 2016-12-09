@@ -271,6 +271,10 @@ infixl 1 =:
     (_,_) -> error "assign to non-variable" 
     
 
+
+------------------------------------------------------------
+-- TODO: Maybe we should expect the "a" after StreamIn, StreamOut
+--       to be Emb a.. (Expr something) 
 ------------------------------------------------------------
 -- Stream get and put 
 sget :: Emb (Expr a) => StreamIn a -> Compute (Expr a)
