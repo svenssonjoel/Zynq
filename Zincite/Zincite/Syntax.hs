@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module Zincite.Syntax where 
 
@@ -252,7 +253,17 @@ instance (Emb a, Emb b, Emb c) => Emb (a,b,c) where
   typeOf (a,b,c) = TTuple [typeOf a, typeOf b,typeOf c]
   toExp  (a,b,c) = tupleE [(toExp a, typeOf a), (toExp b, typeOf b), (toExp c, typeOf c)]
   fromExp (Exp (Tuple [(e1,t1),(e2,t2), (e3,t3)])) = (fromExp e1, fromExp e2, fromExp e3) 
-  
+
+
+-- Class of Zincite values
+type Z a = Emb a 
+
+-- Shorthand for Z(incite) types (Emb a => Expr a)
+type ZInt = Expr Int
+type ZWord = Expr Word
+type ZFloat = Expr Float
+type ZBool = Expr Bool
+-- .. TODO: Repeat many times.
 
 
 ------------------------------------------------------------
