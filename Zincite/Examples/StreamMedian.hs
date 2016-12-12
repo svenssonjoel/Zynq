@@ -17,7 +17,7 @@ import Prelude hiding (mod,div)
 streamMedian :: StreamIn (Expr Int) -> StreamOut (Expr Int) -> Compute ()
 streamMedian in1 out =
   do lmem <- bram (8*4) -- 8 * 4byte quantities
-     (i :: Expr Address) <- declare
+     (i :: ZAddress) <- declare
      i =: 0
      forever $ 
        do 

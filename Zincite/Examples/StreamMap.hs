@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-} 
+
 module StreamMap where
 
 import Zincite.Syntax

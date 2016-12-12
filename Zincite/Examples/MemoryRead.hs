@@ -1,5 +1,4 @@
 
-
 module MemoryRead where
 
 import Zincite.Syntax
@@ -8,10 +7,10 @@ import Zincite.Backend.HLS
 addMem :: Memory Global -> Compute ()
 addMem io =
   do
-    mwrite io address1 $ (mread io address2 + mread io (address2 + 4) :: Expr Int)
+    mwrite io address1 $ (mread io address2 + mread io (address2 + 4) :: ZInt)
 
-    where address1 = 10000 :: Expr Address
-          address2 = 20000 :: Expr Address
+    where address1 = 10000 :: ZAddress
+          address2 = 20000 :: ZAddress
     
 
 

@@ -261,6 +261,7 @@ type Z a = Emb a
 -- Shorthand for Z(incite) types (Emb a => Expr a)
 type ZInt = Expr Int
 type ZWord = Expr Word
+type ZAddress = Expr Word
 type ZFloat = Expr Float
 type ZBool = Expr Bool
 -- .. TODO: Repeat many times.
@@ -274,6 +275,7 @@ declare =
      tell $ Declare nom (typeOf (undefined :: a)) -- SCOPED TYPE VARIABLE enables this
      return $ fromExp (variableE nom (typeOf ( undefined :: a)))
 
+-- TODO: Figure out what binding "force" makes sense here 
 infixl 1 =: 
 (=:) :: forall a . Emb a => a -> a -> Compute ()
 (=:) left right =
@@ -332,6 +334,9 @@ forever c = while (id) (\_ -> c) true
 
 
 
+
+
+
 -- replace this with a type level natural number perhaps
 -- data None 
 -- data (:+:) a b = a :+: b
@@ -347,3 +352,48 @@ forever c = while (id) (\_ -> c) true
 --   -- Constraint m1 > 0 
 --   MemIC :: Block m1 i1 o1 -> Block () i1 o1 -- replace () with the type level natural 1
 --   FIFO  :: 
+
+data None
+data (:+:) a b = a :+: b
+
+-- The Block language differentiates between input and output streams
+-- byt their position in the argument list. 
+data Stream a = S StreamInternal
+-- The "Compute" language differentiates between input and output streams
+-- by them having different types. Thus a conversion mechanism is needed.
+
+-- Datatype for composition of stream computations 
+data Block mem istreams ostreams where
+  ComputeBlock :: mem -> istreams -> ostreams -> Compute () -> Block mem istreams ostreams 
+  (:>>:) :: Block m i o -> Block m' o o' -> Block (m :+: m') i o'  
+
+
+-- Identity program test 
+test :: Block () (StreamIn ZInt) (StreamOut ZInt)
+test = ComputeBlock () in1 out1 $ f in1 out1 
+  where
+    f :: Emb a => StreamIn a -> StreamOut a -> Compute () 
+    f i o = do {a <- sget i; sput o a}
+    -- TODO: Generate these 
+    in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt 
+    out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
+
+-- Of course it does not work!
+-- Since streamIn and StreamOut are different types!
+-- Coming up with a way to generate the stream arguments used
+-- will also provide a solution to the types issue...
+-- A different "Stream-level"-programming type of Streams is needed
+-- see above, but also conversions to the lower level streams.
+--compTest = test :>>: test 
+
+-- StreamAdd test 
+test2 :: Block () (StreamIn ZInt, StreamIn ZInt) (StreamOut ZInt)
+test2 = ComputeBlock () (in1,in2) out1 $ f in1 in2 out1 
+  where
+    f :: (Num a, Emb a) => StreamIn a -> StreamIn a -> StreamOut a -> Compute () 
+    f i1 i2 o = do {a <- sget i1; b <- sget i2; sput o (a + b)}
+    -- TODO: Generate these
+    in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt
+    in2 = (SIn (StreamInternal "s2" TInt)) :: StreamIn ZInt 
+    out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
+
