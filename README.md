@@ -7,9 +7,6 @@
 - An EDSL for ZYNQ programming
 
 - TODO:
-  - StreamIn a, StreamOut a: Change the expectation on a here 
-    in order to try to make types overall more uniform. Test if it 
-    is possible to make them Emb a => StreamIn a, (Expr something, in other words) 
   - Sharing detection or CSE on Expression trees. (May need improvement). 
   - Generate C++ for HLS.  
   - Generate Code for execution on normal CPU. 
