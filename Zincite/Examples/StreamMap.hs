@@ -6,7 +6,7 @@ import Zincite.Backend.HLS
 
 
 -- This is a stream map kernel generator. 
-smap :: Emb (Expr a) =>  (Expr a -> Expr b) -> StreamIn a -> StreamOut b -> Compute ()
+smap :: (Emb b, Emb a) => (a -> b) -> StreamIn a -> StreamOut b -> Compute ()
 smap f in1 out =
   forever $ 
   do a <- sget in1

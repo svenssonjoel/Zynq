@@ -5,7 +5,7 @@ module StreamAdd where
 import Zincite.Syntax
 import Zincite.Backend.HLS
 
-addStreams :: StreamIn Int -> StreamIn Int -> StreamOut Int -> Compute ()
+addStreams :: StreamIn (Expr Int) -> StreamIn (Expr Int) -> StreamOut (Expr Int) -> Compute ()
 addStreams in1 in2 out =
   forever $ 
   do a <- sget in1

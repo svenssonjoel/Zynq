@@ -273,11 +273,11 @@ infixl 1 =:
 
 
 ------------------------------------------------------------
--- TODO: Maybe we should expect the "a" after StreamIn, StreamOut
+-- DONE: Maybe we should expect the "a" after StreamIn, StreamOut
 --       to be Emb a.. (Expr something) 
 ------------------------------------------------------------
 -- Stream get and put 
-sget :: Emb (Expr a) => StreamIn a -> Compute (Expr a)
+sget :: Emb a => StreamIn a -> Compute a
 sget (SIn si@(StreamInternal _ typ)) =
   do
     nom <- freshName "s"
@@ -286,8 +286,8 @@ sget (SIn si@(StreamInternal _ typ)) =
     tell $ SGet nom si typ
     return var
 
-sput :: StreamOut a -> Expr a -> Compute ()
-sput (SOut si@(StreamInternal _ typ)) (E e) = tell $ SPut si e typ
+sput :: Emb a => StreamOut a -> a -> Compute ()
+sput (SOut si@(StreamInternal _ typ)) e = tell $ SPut si (toExp e) typ
 
 ------------------------------------------------------------
 -- Allocate a statically known quantity of local memory.
@@ -301,7 +301,7 @@ bram n =
 
 ------------------------------------------------------------
 -- while
-while :: (Emb (Expr a)) => (Expr a -> Expr Bool) -> (Expr a -> Compute ()) -> Expr a -> Compute ()
+while :: (Emb a) => (a -> Expr Bool) -> (a -> Compute ()) -> a -> Compute ()
 while cond body init =
   do
     nom <- freshName "tmp" 
