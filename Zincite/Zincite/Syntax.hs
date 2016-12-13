@@ -454,11 +454,11 @@ genNewOStream = do {(i,j,k,l) <- get; put (i,j,k+1,l); return ("ostream" ++ show
 genNewCArg = do {(i,j,k,l) <- get; put (i,j,k,l+1); return ("c" ++ show l)}
 
 class GenInterfaces a where
-  genInterfaces :: a -> GenIF Interfaces
+  genInterfaces :: a -> GenIF (Interfaces, Compute ())
 
 -- Base case for recursion
-instance GenInterfaces (Compute a) where
-  genInterfaces c = return emptyInterfaces
+instance GenInterfaces (Compute ()) where
+  genInterfaces c = return (emptyInterfaces,c)
 
 instance (GenInterfaces b) => GenInterfaces (Memory Global -> b) where
   genInterfaces f =
@@ -466,8 +466,8 @@ instance (GenInterfaces b) => GenInterfaces (Memory Global -> b) where
       mem_nom <- genNewMem
       let mem = M (InterfaceIO mem_nom)
           rest = f mem
-      ifs <- genInterfaces rest
-      return (addMem ifs mem_nom)
+      (ifs,c) <- genInterfaces rest
+      return (addMem ifs mem_nom,c)
 
 instance (Emb a, GenInterfaces b) => GenInterfaces (StreamIn a -> b) where
   genInterfaces f =
@@ -475,8 +475,8 @@ instance (Emb a, GenInterfaces b) => GenInterfaces (StreamIn a -> b) where
       i_nom <- genNewIStream
       let i_var = SIn (StreamInternal i_nom t)
           rest = f i_var
-      ifs <- genInterfaces rest
-      return (addIStream ifs i_nom t)
+      (ifs,c) <- genInterfaces rest
+      return (addIStream ifs i_nom t,c)
       where
         t = typeOf (undefined :: a) 
 
@@ -486,8 +486,8 @@ instance (Emb a, GenInterfaces b) => GenInterfaces (StreamOut a -> b) where
       i_nom <- genNewOStream
       let i_var = SOut (StreamInternal i_nom t)
           rest = f i_var
-      ifs <- genInterfaces rest
-      return (addOStream ifs i_nom t)
+      (ifs,c) <- genInterfaces rest
+      return (addOStream ifs i_nom t,c)
       where
         t = typeOf (undefined :: a)
 
@@ -497,25 +497,47 @@ instance (Emb a, GenInterfaces b) => GenInterfaces (a -> b) where
       i_nom <- genNewCArg
       let i_var = fromExp (variableE i_nom t)
           rest = f i_var
-      ifs <- genInterfaces rest
-      return (addCArg ifs i_nom t)
+      (ifs,c) <- genInterfaces rest
+      return (addCArg ifs i_nom t,c)
       where
         t = typeOf (undefined :: a)
                 
 -- mkComputeBlock :: ???? => ? -> ?
 
+type family B a where
+  B (StreamIn a) = Stream a
+  B (StreamOut a) = Stream a
+  B (Memory Global) = Memory Global
+  B (Expr a) = Expr a 
+
+
+
+-- TODO: new approach. Require that all f's used to create ComputeBlocks
+--  have the following arguments in exactly this order: f :: control -> mem -> istreams -> ostreams
+--  where each argument is either (), a singleton or a tuple (a,..,b). 
+--  This is no big restriction as we can always convert any function to this form. 
 
 -- Identity program test 
--- test :: Block () (Stream ZInt) (Stream ZInt)
--- test = ComputeBlock {- ((),S (unsin in1),S (unsout out1)) -}
---        (runGenIF (genInterfaces f)) $ f in1 out1 
---   where
---     f :: Emb a => StreamIn a -> StreamOut a -> Compute () 
---     f i o = do {a <- sget i; sput o a}
---     -- TODO: Generate these
---     (in1,out1) = (streamInputs (undefined :: Stream ZInt) [0..]
---                  ,streamOutputs (undefined :: Stream ZInt) [0..]) 
- 
+test :: Block () (Stream ZInt) (Stream ZInt)
+test = ComputeBlock ifs c 
+  where
+    (ifs,c) = runGenIF (genInterfaces f)
+    
+    f :: StreamIn ZInt -> StreamOut ZInt -> Compute () 
+    f i o = do {a <- sget i; sput o a}
+
+testWrong :: Block () (Stream ZInt) (Stream ZInt)
+testWrong = ComputeBlock ifs c 
+  where
+    (ifs,c) = runGenIF (genInterfaces f)
+    -- This is clearly wrong! (How to protect against it ?)
+    -- Need a relation between the type of testWrong and f. 
+    -- and genInterfaces needs to know about this as well.. 
+    f ::  StreamIn ZFloat -> StreamOut ZFloat -> Compute () 
+    f i o = do {a <- sget i; sput o a}
+
+
+
 -- test = ComputeBlock () (S (unsin in1)) (S (unsout out1)) $ f in1 out1 
 --   where
 --     f :: Emb a => StreamIn a -> StreamOut a -> Compute () 
