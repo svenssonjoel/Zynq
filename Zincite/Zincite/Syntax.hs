@@ -417,8 +417,93 @@ data Block mem istreams ostreams where
   (:>>:) :: Block m i o -> Block m' o o' -> Block (m :+: m') i o'  
 
 
--- TODO: Implement mkComputeBlock that hides as much ugliness as possible!!! 
+-- TODO: Implement mkComputeBlock that hides as much ugliness as possible!!!
+
+data Interfaces =
+  Interfaces { memIF    :: [MemoryInternal]
+             , iStreams :: [StreamInternal]
+             , oStreams :: [StreamInternal]
+             , cArgs    :: [(Name, Type)]
+             }
+emptyInterfaces = Interfaces [] [] [] [] 
+
+addMem :: Interfaces -> Name -> Interfaces
+addMem (Interfaces m i o c) nom = Interfaces (InterfaceIO nom :m) i o c
+addIStream :: Interfaces -> Name -> Type -> Interfaces
+addIStream (Interfaces m i o c) nom t = Interfaces m (StreamInternal nom t : i) o c 
+addOStream :: Interfaces -> Name -> Type -> Interfaces
+addOStream (Interfaces m i o c) nom t = Interfaces m i (StreamInternal nom t : o) c 
+addCArg :: Interfaces -> Name -> Type -> Interfaces
+addCArg (Interfaces m i o c) nom t = Interfaces m i o ((nom,t):c)
+
+
+-- Create an Interfaces object from the type of a function that
+-- returns a Compute ().
+type GenIF a = State (Int,Int,Int,Int) a
+runGenIF :: GenIF a -> a 
+runGenIF g = evalState g (0,0,0,0) 
+
+genNewMem, genNewIStream, genNewOStream, genNewCArg :: GenIF String
+genNewMem = do {(i,j,k,l) <- get; put (i+1,j,k,l); return ("mem" ++ show i)}
+genNewIStream = do {(i,j,k,l) <- get; put (i,j+1,k,l); return ("istream" ++ show j)}
+genNewOStream = do {(i,j,k,l) <- get; put (i,j,k+1,l); return ("ostream" ++ show k)}
+genNewCArg = do {(i,j,k,l) <- get; put (i,j,k,l+1); return ("c" ++ show l)}
+
+class GenInterfaces a where
+  genInterfaces :: a -> GenIF Interfaces
+
+-- Base case for recursion
+instance GenInterfaces (Compute a) where
+  genInterfaces c = return emptyInterfaces
+
+instance (GenInterfaces b) => GenInterfaces (Memory Global -> b) where
+  genInterfaces f =
+    do
+      mem_nom <- genNewMem
+      let mem = M (InterfaceIO mem_nom)
+          rest = f mem
+      ifs <- genInterfaces rest
+      return (addMem ifs mem_nom)
+
+instance (Emb a, GenInterfaces b) => GenInterfaces (StreamIn a -> b) where
+  genInterfaces f =
+    do
+      i_nom <- genNewIStream
+      let i_var = SIn (StreamInternal i_nom t)
+          rest = f i_var
+      ifs <- genInterfaces rest
+      return (addIStream ifs i_nom t)
+      where
+        t = typeOf (undefined :: a) 
+
+instance (Emb a, GenInterfaces b) => GenInterfaces (StreamOut a -> b) where
+  genInterfaces f =
+    do
+      i_nom <- genNewOStream
+      let i_var = SOut (StreamInternal i_nom t)
+          rest = f i_var
+      ifs <- genInterfaces rest
+      return (addOStream ifs i_nom t)
+      where
+        t = typeOf (undefined :: a)
+
+instance (Emb a, GenInterfaces b) => GenInterfaces (a -> b) where
+  genInterfaces f =
+    do
+      i_nom <- genNewCArg
+      let i_var = fromExp (variableE i_nom t)
+          rest = f i_var
+      ifs <- genInterfaces rest
+      return (addCArg ifs i_nom t)
+      where
+        t = typeOf (undefined :: a)
+                
 -- mkComputeBlock :: ???? => ? -> ?
+
+
+-- TODO: This is replicated from BaseType.hs
+--       after a refactoring this should go away.
+--       (Much other code should also leave this module) 
 
 
 -- Identity program test 
