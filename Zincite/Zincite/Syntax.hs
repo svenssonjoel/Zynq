@@ -7,6 +7,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverlappingInstances #-} 
 
 module Zincite.Syntax where 
 
@@ -413,7 +414,10 @@ instance (Emb a, Emb b, Emb c) => StreamOutputs (Stream a, Stream b, Stream c) w
 
 -- Datatype for composition of stream computations 
 data Block mem istreams ostreams where
-  ComputeBlock :: mem -> istreams -> ostreams -> Compute () -> Block mem istreams ostreams 
+  --ComputeBlock :: mem -> istreams -> ostreams -> Compute () -> Block mem istreams ostreams
+  ComputeBlock ::{- (mem,istreams, ostreams) ->-} Interfaces -> Compute () -> Block mem istreams ostreams
+  -- Unfortunately, now there is no connection between contents and type
+  -- in the ComputeBlock case.. 
   (:>>:) :: Block m i o -> Block m' o o' -> Block (m :+: m') i o'  
 
 
@@ -501,20 +505,24 @@ instance (Emb a, GenInterfaces b) => GenInterfaces (a -> b) where
 -- mkComputeBlock :: ???? => ? -> ?
 
 
--- TODO: This is replicated from BaseType.hs
---       after a refactoring this should go away.
---       (Much other code should also leave this module) 
-
-
 -- Identity program test 
-test :: Block () (Stream ZInt) (Stream ZInt)
-test = ComputeBlock () (S (unsin in1)) (S (unsout out1)) $ f in1 out1 
-  where
-    f :: Emb a => StreamIn a -> StreamOut a -> Compute () 
-    f i o = do {a <- sget i; sput o a}
-    -- TODO: Generate these
-    (in1,out1) = (streamInputs (undefined :: Stream ZInt) [0..]
-                 ,streamOutputs (undefined :: Stream ZInt) [0..]) 
+-- test :: Block () (Stream ZInt) (Stream ZInt)
+-- test = ComputeBlock {- ((),S (unsin in1),S (unsout out1)) -}
+--        (runGenIF (genInterfaces f)) $ f in1 out1 
+--   where
+--     f :: Emb a => StreamIn a -> StreamOut a -> Compute () 
+--     f i o = do {a <- sget i; sput o a}
+--     -- TODO: Generate these
+--     (in1,out1) = (streamInputs (undefined :: Stream ZInt) [0..]
+--                  ,streamOutputs (undefined :: Stream ZInt) [0..]) 
+ 
+-- test = ComputeBlock () (S (unsin in1)) (S (unsout out1)) $ f in1 out1 
+--   where
+--     f :: Emb a => StreamIn a -> StreamOut a -> Compute () 
+--     f i o = do {a <- sget i; sput o a}
+--     -- TODO: Generate these
+--     (in1,out1) = (streamInputs (undefined :: Stream ZInt) [0..]
+--                  ,streamOutputs (undefined :: Stream ZInt) [0..]) 
     --in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt 
     --out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
 
@@ -526,8 +534,8 @@ test = ComputeBlock () (S (unsin in1)) (S (unsout out1)) $ f in1 out1
 -- see above, but also conversions to the lower level streams.
 
 -- Now compTest works! (Tweaks needed!) 
-compTest :: Block (() :+: ()) (Stream ZInt) (Stream ZInt)
-compTest = test :>>: test 
+--compTest :: Block (() :+: ()) (Stream ZInt) (Stream ZInt)
+--compTest = test :>>: test 
 
 -- StreamAdd test 
 -- test2 :: Block () (StreamIn ZInt, StreamIn ZInt) (StreamOut ZInt)
