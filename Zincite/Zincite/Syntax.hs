@@ -27,7 +27,12 @@ newtype StreamIn a = SIn {unsin :: StreamInternal} deriving Show -- Phantom type
 newtype StreamOut a = SOut {unsout :: StreamInternal} deriving Show 
 --data LocalMem = LocalMem Name Int deriving Show
 
-
+-- Arguments to functions that return Compute, that are not streams or memory interfaces
+-- are control arguments
+-- TODO: Control parameters should be identified and collected.
+-- TODO: Also need to "hide" control arguments completely at the
+--       Stream composition language level. 
+type Control a = Expr a 
 
 -- Unify the memory types
 data MemoryInternal = InterfaceIO Name
@@ -372,6 +377,8 @@ class StreamInputs a where
 class StreamOutputs a where
   type O a 
   streamOutputs :: a -> [Int] -> (O a)
+
+-- TODO: All this may be unnecessary. We'll see
 
 -- TODO: Come up with a way to make a recursive implementation of this
 --       possible (if at all possible to begin with) 
