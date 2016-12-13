@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Zincite.Syntax where 
 
@@ -22,9 +23,10 @@ data Data
 
 --data InterfaceIO = InterfaceIO Name deriving Show 
 data StreamInternal  = StreamInternal Name Type deriving Show 
-newtype StreamIn a = SIn StreamInternal deriving Show -- Phantom type a 
-newtype StreamOut a = SOut StreamInternal deriving Show 
+newtype StreamIn a = SIn {unsin :: StreamInternal} deriving Show -- Phantom type a 
+newtype StreamOut a = SOut {unsout :: StreamInternal} deriving Show 
 --data LocalMem = LocalMem Name Int deriving Show
+
 
 
 -- Unify the memory types
@@ -358,9 +360,56 @@ data (:+:) a b = a :+: b
 
 -- The Block language differentiates between input and output streams
 -- byt their position in the argument list. 
-data Stream a = S StreamInternal
+data Stream a = S StreamInternal 
+
 -- The "Compute" language differentiates between input and output streams
 -- by them having different types. Thus a conversion mechanism is needed.
+
+class StreamInputs a where
+  type I a
+  streamInputs :: a -> [Int] -> (I a)
+
+class StreamOutputs a where
+  type O a 
+  streamOutputs :: a -> [Int] -> (O a)
+
+-- TODO: Come up with a way to make a recursive implementation of this
+--       possible (if at all possible to begin with) 
+instance Emb a => StreamInputs (Stream a) where
+  type I (Stream a) = StreamIn a
+  streamInputs s (i:_) = SIn (StreamInternal ("input"++show i) (typeOf  (undefined :: a)))
+
+instance (Emb a, Emb b) => StreamInputs (Stream a, Stream b) where
+  type  I (Stream a, Stream b) = (StreamIn a, StreamIn b)
+  streamInputs s (i:j:_) =
+    (SIn (StreamInternal ("input"++show i) (typeOf (undefined :: a)))
+      , SIn (StreamInternal ("input"++show j) (typeOf (undefined :: b))))
+
+instance (Emb a, Emb b, Emb c) => StreamInputs (Stream a, Stream b, Stream c) where
+  type  I (Stream a, Stream b, Stream c) = (StreamIn a, StreamIn b, StreamIn c)
+  streamInputs s (i:j:k:_) =
+    (SIn (StreamInternal ("input"++show i) (typeOf (undefined :: a)))
+      , SIn (StreamInternal ("input"++show j) (typeOf (undefined :: b)))
+      , SIn (StreamInternal ("input"++show k) (typeOf (undefined :: c))))
+
+-- A few Outputs instances 
+instance Emb a => StreamOutputs (Stream a) where
+  type O (Stream a) = StreamOut a
+  streamOutputs s (i:_) = SOut (StreamInternal ("output"++show i) (typeOf  (undefined :: a)))
+
+instance (Emb a, Emb b) => StreamOutputs (Stream a, Stream b) where
+  type  O (Stream a, Stream b) = (StreamOut a, StreamOut b)
+  streamOutputs s (i:j:_) =
+    (SOut (StreamInternal ("output"++show i) (typeOf (undefined :: a)))
+      , SOut (StreamInternal ("output"++show j) (typeOf (undefined :: b))))
+
+instance (Emb a, Emb b, Emb c) => StreamOutputs (Stream a, Stream b, Stream c) where
+  type  O (Stream a, Stream b, Stream c) = (StreamOut a, StreamOut b, StreamOut c)
+  streamOutputs s (i:j:k:_) =
+    (SOut (StreamInternal ("output"++show i) (typeOf (undefined :: a)))
+      , SOut (StreamInternal ("output"++show j) (typeOf (undefined :: b)))
+      , SOut (StreamInternal ("output"++show k) (typeOf (undefined :: c))))
+
 
 -- Datatype for composition of stream computations 
 data Block mem istreams ostreams where
@@ -368,15 +417,21 @@ data Block mem istreams ostreams where
   (:>>:) :: Block m i o -> Block m' o o' -> Block (m :+: m') i o'  
 
 
+-- TODO: Implement mkComputeBlock that hides as much ugliness as possible!!! 
+-- mkComputeBlock :: ???? => ? -> ?
+
+
 -- Identity program test 
-test :: Block () (StreamIn ZInt) (StreamOut ZInt)
-test = ComputeBlock () in1 out1 $ f in1 out1 
+test :: Block () (Stream ZInt) (Stream ZInt)
+test = ComputeBlock () (S (unsin in1)) (S (unsout out1)) $ f in1 out1 
   where
     f :: Emb a => StreamIn a -> StreamOut a -> Compute () 
     f i o = do {a <- sget i; sput o a}
-    -- TODO: Generate these 
-    in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt 
-    out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
+    -- TODO: Generate these
+    (in1,out1) = (streamInputs (undefined :: Stream ZInt) [0..]
+                 ,streamOutputs (undefined :: Stream ZInt) [0..]) 
+    --in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt 
+    --out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
 
 -- Of course it does not work!
 -- Since streamIn and StreamOut are different types!
@@ -384,16 +439,19 @@ test = ComputeBlock () in1 out1 $ f in1 out1
 -- will also provide a solution to the types issue...
 -- A different "Stream-level"-programming type of Streams is needed
 -- see above, but also conversions to the lower level streams.
---compTest = test :>>: test 
+
+-- Now compTest works! (Tweaks needed!) 
+compTest :: Block (() :+: ()) (Stream ZInt) (Stream ZInt)
+compTest = test :>>: test 
 
 -- StreamAdd test 
-test2 :: Block () (StreamIn ZInt, StreamIn ZInt) (StreamOut ZInt)
-test2 = ComputeBlock () (in1,in2) out1 $ f in1 in2 out1 
-  where
-    f :: (Num a, Emb a) => StreamIn a -> StreamIn a -> StreamOut a -> Compute () 
-    f i1 i2 o = do {a <- sget i1; b <- sget i2; sput o (a + b)}
-    -- TODO: Generate these
-    in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt
-    in2 = (SIn (StreamInternal "s2" TInt)) :: StreamIn ZInt 
-    out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
+-- test2 :: Block () (StreamIn ZInt, StreamIn ZInt) (StreamOut ZInt)
+-- test2 = ComputeBlock () (in1,in2) out1 $ f in1 in2 out1 
+--   where
+--     f :: (Num a, Emb a) => StreamIn a -> StreamIn a -> StreamOut a -> Compute () 
+--     f i1 i2 o = do {a <- sget i1; b <- sget i2; sput o (a + b)}
+--     -- TODO: Generate these
+--     in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt
+--     in2 = (SIn (StreamInternal "s2" TInt)) :: StreamIn ZInt 
+--     out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
 
