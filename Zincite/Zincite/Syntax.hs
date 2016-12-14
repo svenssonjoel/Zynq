@@ -325,7 +325,7 @@ type family (++) (a :: [k])  (b :: [k]) :: [k] where
   (++) (a ': as)  bs = a ': (as ++ bs) 
 
 -- The Block language differentiates between input and output streams
--- byt their position in the argument list. 
+-- by their position in the argument list. 
 data Stream a = S StreamInternal 
 
 -- Datatype for composition of stream computations 
