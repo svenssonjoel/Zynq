@@ -352,7 +352,9 @@ data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
 
   ConnectTail :: Block m i (o ': os) 
               -> Block m' os o' 
-              -> Block (m ++ m') i ('[o] ++ o') 
+              -> Block (m ++ m') i ('[o] ++ o')  
+
+  MemCrossbar :: Block (m ': ms) i o -> Block '[Memory Global] i o  
   
   
   -- TODO: Come up with more ways to compose Blocks 
