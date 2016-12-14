@@ -67,6 +67,7 @@ library
                , mtl >=2.2 && <2.3
                , data-reify >= 0.6.1 && <0.7
                , containers >= 0.5.6.2 && < 0.6 
+               , type-list >= 0.5.0.0 && < 0.6 
   
   -- Directories containing source files.
   -- hs-source-dirs:      
