@@ -400,7 +400,6 @@ genNewOStream = do {(i,j,k,l) <- get; put (i,j,k+1,l); return ("ostream" ++ show
 genNewCArg = do {(i,j,k,l) <- get; put (i,j,k,l+1); return ("c" ++ show l)}
 
 
-
 class GenInterfaces a mem i o where
   genInterfaces :: a -> GenIF (Interfaces mem i o, Compute ())
 
@@ -451,11 +450,6 @@ instance (Emb a, GenInterfaces b m i o) => GenInterfaces (a -> b) m i o where
         t = typeOf (undefined :: a)
                  
 -- mkComputeBlock :: ???? => ? -> ?
-
--- TODO: new approach. Require that all f's used to create ComputeBlocks
---  have the following arguments in exactly this order: f :: control -> mem -> istreams -> ostreams
---  where each argument is either (), a singleton or a tuple (a,..,b). 
---  This is no big restriction as we can always convert any function to this form. 
 
 -- Identity program test 
 test :: Block '[] ('[Stream ZInt] ) ('[Stream ZInt])
