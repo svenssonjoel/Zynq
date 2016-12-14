@@ -354,7 +354,7 @@ data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
               -> Block m' os o' 
               -> Block (m ++ m') i ('[o] ++ o')  
 
-  MemCrossbar :: Block (m ': ms) i o -> Block '[Memory Global] i o  
+  MemInterconnect :: Block (m ': ms) i o -> Block '[Memory Global] i o  
   
   
   -- TODO: Come up with more ways to compose Blocks 
