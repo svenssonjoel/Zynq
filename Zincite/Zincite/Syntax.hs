@@ -150,7 +150,6 @@ false = fromExp $ constantE $ BoolVal False
 type Target = Name
            
 -- statment language
--- TODO: Consider making MRead, LRead, SGet (and maybe others part of the expression lang) 
 data Code e =
     Nil
   | Declare Name Type                 -- Variable declaration
