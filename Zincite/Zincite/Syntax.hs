@@ -10,6 +10,7 @@
 {-# LANGUAGE OverlappingInstances #-} 
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE PolyKinds #-}
 
 
 module Zincite.Syntax where 
@@ -191,27 +192,9 @@ freshName pre = do
   put (s + 1)
   return (pre ++ show s)
 
-
-
--- TODO: Clean up things 
--- class MemoryIO a where
---   mread  :: Memory m -> Expr Address -> Expr a 
---   mwrite :: Memory m -> Expr Address -> Expr a -> Compute ()
-
--- instance MemoryIO Int where
---   mread interface addr =
---     fromExp $ mreadE (unM interface) (unE addr) TInt 
-    
---   mwrite interface addr value =
---     tell $ MWrite (unM interface) (unE addr) (unE value) TInt 
-
--- instance MemoryIO Float where
---   mread interface addr =
---     fromExp $ mreadE (unM interface) (unE addr) TFloat 
-    
---   mwrite interface addr value =
---     tell $ MWrite (unM interface) (unE addr) (unE value) TFloat
-
+-- TODO: Maybe should be class of its own. 
+--       This way we can have a special implementation of mread
+--       for tuple values (more than one read). 
 mread  :: forall a m. Emb a => Memory m -> Expr Address -> a 
 mread interface addr =
   fromExp $ mreadE (unM interface) (unE addr) (typeOf (undefined :: a))
@@ -335,8 +318,9 @@ while cond body init =
 forever :: Compute () -> Compute ()
 forever c = while (id) (\_ -> c) true
 
--- Why is this not already available ?? 
-type family (++) (a :: [*])  (b :: [*]) :: [*] where
+-- Why is this not already available ??
+-- Concatenation of type level lists 
+type family (++) (a :: [k])  (b :: [k]) :: [k] where
   (++) a  '[] = a
   (++) '[] a  = a 
   (++) (a ': as)  bs = a ': (as ++ bs) 
@@ -346,29 +330,42 @@ type family (++) (a :: [*])  (b :: [*]) :: [*] where
 data Stream a = S StreamInternal 
 
 -- Datatype for composition of stream computations 
-data Block (mem :: [*]) (istreams :: [*]) (ostreams :: [*])  where
-  --ComputeBlock :: mem -> istreams -> ostreams -> Compute () -> Block mem istreams ostreams
+data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
 
-  ComputeBlock :: Interfaces mem istreams ostreams -> Compute () -> Block mem istreams ostreams
+  ComputeBlock :: Interfaces mem istreams ostreams
+               -> Compute ()
+               -> Block mem istreams ostreams               
        -- mem, istreams, ostreams are just there to lock down the types
-       -- (sorry for inexact vocabulary) 
+       -- (sorry for inexact vocabulary)
+       -- This is because the preferred way to create these "Compute ()"
+       -- objects is by normal haskell functions a -> .. -> Compute ()
+       -- where the arguments (a ..) are memory interfaces, streams, etc.
+       -- The type information present in the inputs to the function
+       -- are forgotten when applied (at haskell type level), but we
+       -- still want to know this when composing Blocks. 
   
-  (:>>:) :: Block m i o -> Block m' o o' -> Block (m ++ m') i o'  
+  (:>>:) :: Block m i o -> Block m' o o' -> Block (m ++ m') i o'
+
+  -- Woa, writing the connectors is tricky! 
+  ConnectHead :: Block m i (o ': os)
+              -> Block m' '[o] o'
+              -> Block (m ++ m') i (o' ++ os) 
+
+  ConnectTail :: Block m i (o ': os) 
+              -> Block m' os o' 
+              -> Block (m ++ m') i ('[o] ++ o') 
+  
+  
+  -- TODO: Come up with more ways to compose Blocks 
 
 
 -- TODO: Implement mkComputeBlock that hides as much ugliness as possible!!!
 
--- data Interfaces =
---   Interfaces { memIF    :: [MemoryInternal]
---              , iStreams :: [StreamInternal]
---              , oStreams :: [StreamInternal]
---              , cArgs    :: [(Name, Type)]
---              }
-data Interfaces (a :: [*]) (b :: [*]) (c :: [*])  where
-  Interfaces :: [MemoryInternal]
-             -> [StreamInternal]
-             -> [StreamInternal]
-             -> [(Name,Type)]
+data Interfaces (a :: [k]) (b :: [k]) (c :: [k])  where
+  Interfaces :: [MemoryInternal] -- Memory IO  
+             -> [StreamInternal] -- Input Streams
+             -> [StreamInternal] -- Output Streams 
+             -> [(Name,Type)]    -- Control arguments 
              -> Interfaces a b c 
 
 emptyInterfaces :: Interfaces '[] '[] '[] 
