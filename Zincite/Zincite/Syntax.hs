@@ -2,11 +2,15 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
+-- ***** {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE OverlappingInstances #-} 
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DataKinds #-}
+
 
 module Zincite.Syntax where 
 
@@ -14,12 +18,14 @@ import Control.Monad.State  hiding (forever)
 import Control.Monad.Writer hiding (forever)
 import Control.Applicative
 
+import GHC.TypeLits
+
+ -- import Data.Type.List  -- Currently dont need it 
 import Data.Word 
 
 type Name = String 
 type Address = Word
 type Size = Int
-data Data
 
 --data InterfaceIO = InterfaceIO Name deriving Show 
 data StreamInternal  = StreamInternal Name Type deriving Show 
@@ -151,17 +157,14 @@ type Target = Name
 -- TODO: Consider making MRead, LRead, SGet (and maybe others part of the expression lang) 
 data Code e =
     Nil
-  | Declare Name Type                  -- Variable declaration
- -- | MRead  Target InterfaceIO Type Exp -- DRAM Read 
+  | Declare Name Type                 -- Variable declaration
   | MWrite MemoryInternal  e e Type   -- DRAM Write 
-  | LocalMemory MemoryInternal               -- Request use of BRAM 
---  | LWrite MemoryInternal Type Exp Exp       -- BRAM Write
---  | LRead  Target LocalMem Type Exp    -- BRAM Read
-  | SGet   Target StreamInternal Type  -- Pop of a Stream 
-  | SPut   StreamInternal e Type     -- Push onto a Stream 
-  | Assign Target  e Type            -- Assignment to variable 
+  | LocalMemory MemoryInternal        -- Request use of Local Ram  
+  | SGet   Target StreamInternal Type -- Pop of a Stream 
+  | SPut   StreamInternal e Type      -- Push onto a Stream 
+  | Assign Target  e Type             -- Assignment to variable 
   | Seq    (Code e) (Code e)          -- sequencing of operation
-  | While  Name (Code e) e           -- Name bodyCode cond
+  | While  Name (Code e) e            -- Name bodyCode cond
     deriving Show 
 
 instance Monoid (Code e) where
@@ -337,36 +340,17 @@ while cond body init =
 forever :: Compute () -> Compute ()
 forever c = while (id) (\_ -> c) true
 
-
-
-
-
-
-
-
--- replace this with a type level natural number perhaps
--- data None 
--- data (:+:) a b = a :+: b
-
-  
--- TODO: Allow for grouping of mem interfaces using interconnects
----      
--- data Block mem instreams outstreams where
---   ComputeBlock :: (mem -> StreamIn instreams -> StreamOut outstreams -> Comp ()) -> Block mem instreams outstreams 
---   Seq :: Block m1 i1 o1 -> Block m2 o1 o3 -> Block (m1 :+: m2) i1 o3 
-
-
---   -- Constraint m1 > 0 
---   MemIC :: Block m1 i1 o1 -> Block () i1 o1 -- replace () with the type level natural 1
---   FIFO  :: 
-
-data None
-data (:+:) a b = a :+: b
+-- Why is this not already available ?? 
+type family (++) (a :: [*])  (b :: [*]) :: [*] where
+  (++) a  '[] = a
+  (++) '[] a  = a 
+  (++) (a ': as)  bs = a ': (as ++ bs) 
 
 -- The Block language differentiates between input and output streams
 -- byt their position in the argument list. 
 data Stream a = S StreamInternal 
 
+<<<<<<< HEAD
 -- The "Compute" language differentiates between input and output streams
 -- by them having different types. Thus a conversion mechanism is needed.
 
@@ -418,47 +402,150 @@ instance (Emb a, Emb b, Emb c) => StreamOutputs (Stream a, Stream b, Stream c) w
       , SOut (StreamInternal ("output"++show k) (typeOf (undefined :: c))))
 
 
+=======
+>>>>>>> eb0b9e4a9505ede876c26a0c5afba4ebef965a0b
 -- Datatype for composition of stream computations 
-data Block mem istreams ostreams where
-  ComputeBlock :: mem -> istreams -> ostreams -> Compute () -> Block mem istreams ostreams 
-  (:>>:) :: Block m i o -> Block m' o o' -> Block (m :+: m') i o'  
+data Block (mem :: [*]) (istreams :: [*]) (ostreams :: [*])  where
+  --ComputeBlock :: mem -> istreams -> ostreams -> Compute () -> Block mem istreams ostreams
+
+  ComputeBlock :: Interfaces mem istreams ostreams -> Compute () -> Block mem istreams ostreams
+       -- mem, istreams, ostreams are just there to lock down the types
+       -- (sorry for inexact vocabulary) 
+  
+  (:>>:) :: Block m i o -> Block m' o o' -> Block (m ++ m') i o'  
 
 
--- TODO: Implement mkComputeBlock that hides as much ugliness as possible!!! 
+-- TODO: Implement mkComputeBlock that hides as much ugliness as possible!!!
+
+-- data Interfaces =
+--   Interfaces { memIF    :: [MemoryInternal]
+--              , iStreams :: [StreamInternal]
+--              , oStreams :: [StreamInternal]
+--              , cArgs    :: [(Name, Type)]
+--              }
+data Interfaces (a :: [*]) (b :: [*]) (c :: [*])  where
+  Interfaces :: [MemoryInternal]
+             -> [StreamInternal]
+             -> [StreamInternal]
+             -> [(Name,Type)]
+             -> Interfaces a b c 
+
+emptyInterfaces :: Interfaces '[] '[] '[] 
+emptyInterfaces = Interfaces [] [] [] [] 
+
+addMem :: Interfaces m i o -> (Name, m') -> Interfaces (m' ': m) i o  
+addMem (Interfaces m i o c) (nom,_) = Interfaces (InterfaceIO nom :m) i o c
+
+addIStream :: Interfaces m i o -> (Name ,i') -> Type -> Interfaces m (i' ': i) o 
+addIStream (Interfaces m i o c) (nom,_) t = Interfaces m (StreamInternal nom t : i) o c
+
+addOStream :: Interfaces m i o -> (Name, o') -> Type -> Interfaces m i (o' ': o) 
+addOStream (Interfaces m i o c) (nom,_) t = Interfaces m i (StreamInternal nom t : o) c
+
+addCArg :: Interfaces m i o -> Name -> Type -> Interfaces m i o
+addCArg (Interfaces m i o c) nom t = Interfaces m i o ((nom,t):c)
+
+
+-- Create an Interfaces object from the type of a function that
+-- returns a Compute ().
+type GenIF a = State (Int,Int,Int,Int) a
+runGenIF :: GenIF a -> a 
+runGenIF g = evalState g (0,0,0,0) 
+
+genNewMem, genNewIStream, genNewOStream, genNewCArg :: GenIF String
+genNewMem = do {(i,j,k,l) <- get; put (i+1,j,k,l); return ("mem" ++ show i)}
+genNewIStream = do {(i,j,k,l) <- get; put (i,j+1,k,l); return ("istream" ++ show j)}
+genNewOStream = do {(i,j,k,l) <- get; put (i,j,k+1,l); return ("ostream" ++ show k)}
+genNewCArg = do {(i,j,k,l) <- get; put (i,j,k,l+1); return ("c" ++ show l)}
+
+
+
+class GenInterfaces a mem i o where
+  genInterfaces :: a -> GenIF (Interfaces mem i o, Compute ())
+
+-- Base case for recursion
+instance GenInterfaces (Compute ()) '[] '[] '[]  where
+  genInterfaces c = return (emptyInterfaces,c)
+
+instance GenInterfaces b m i o => GenInterfaces (Memory Global -> b) (Memory Global ': m) i o where
+  genInterfaces f =
+    do
+      mem_nom <- genNewMem
+      let mem = M (InterfaceIO mem_nom)
+          rest = f mem
+      (ifs,c) <- genInterfaces rest
+      return (addMem ifs (mem_nom, undefined :: Memory Global), c) 
+
+instance (Emb a, GenInterfaces b m i o) => GenInterfaces (StreamIn a -> b) m (Stream a ': i) o where
+  genInterfaces f =
+    do
+      i_nom <- genNewIStream
+      let i_var = SIn (StreamInternal i_nom t)
+          rest = f i_var
+      (ifs,c) <- genInterfaces rest
+      return (addIStream ifs (i_nom, undefined :: Stream a) t,c)
+      where
+        t = typeOf (undefined :: a) 
+
+instance (Emb a, GenInterfaces b m i o) => GenInterfaces (StreamOut a -> b) m i (Stream a ': o) where
+  genInterfaces f =
+    do
+      i_nom <- genNewOStream
+      let i_var = SOut (StreamInternal i_nom t)
+          rest = f i_var
+      (ifs,c) <- genInterfaces rest
+      return (addOStream ifs (i_nom, undefined :: Stream a)  t,c)
+      where
+        t = typeOf (undefined :: a)
+
+instance (Emb a, GenInterfaces b m i o) => GenInterfaces (a -> b) m i o where
+  genInterfaces f =
+    do
+      i_nom <- genNewCArg
+      let i_var = fromExp (variableE i_nom t)
+          rest = f i_var
+      (ifs,c) <- genInterfaces rest
+      return (addCArg ifs i_nom t,c)
+      where
+        t = typeOf (undefined :: a)
+                 
 -- mkComputeBlock :: ???? => ? -> ?
 
+-- TODO: new approach. Require that all f's used to create ComputeBlocks
+--  have the following arguments in exactly this order: f :: control -> mem -> istreams -> ostreams
+--  where each argument is either (), a singleton or a tuple (a,..,b). 
+--  This is no big restriction as we can always convert any function to this form. 
 
 -- Identity program test 
-test :: Block () (Stream ZInt) (Stream ZInt)
-test = ComputeBlock () (S (unsin in1)) (S (unsout out1)) $ f in1 out1 
+test :: Block '[] ('[Stream ZInt] ) ('[Stream ZInt])
+test = ComputeBlock ifs c 
   where
-    f :: Emb a => StreamIn a -> StreamOut a -> Compute () 
+    (ifs,c) = runGenIF (genInterfaces f)
+    
+    f :: StreamIn ZInt -> StreamOut ZInt -> Compute () 
     f i o = do {a <- sget i; sput o a}
-    -- TODO: Generate these
-    (in1,out1) = (streamInputs (undefined :: Stream ZInt) [0..]
-                 ,streamOutputs (undefined :: Stream ZInt) [0..]) 
-    --in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt 
-    --out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
 
--- Of course it does not work!
--- Since streamIn and StreamOut are different types!
--- Coming up with a way to generate the stream arguments used
--- will also provide a solution to the types issue...
--- A different "Stream-level"-programming type of Streams is needed
--- see above, but also conversions to the lower level streams.
 
--- Now compTest works! (Tweaks needed!) 
-compTest :: Block (() :+: ()) (Stream ZInt) (Stream ZInt)
-compTest = test :>>: test 
-
--- StreamAdd test 
--- test2 :: Block () (StreamIn ZInt, StreamIn ZInt) (StreamOut ZInt)
--- test2 = ComputeBlock () (in1,in2) out1 $ f in1 in2 out1 
+-- NOW testWrong leads to an error "No instance for GenInterfaces..." 
+-- testWrong :: Block () (Stream ZInt) (Stream ZInt)
+-- testWrong = ComputeBlock ifs c 
 --   where
---     f :: (Num a, Emb a) => StreamIn a -> StreamIn a -> StreamOut a -> Compute () 
---     f i1 i2 o = do {a <- sget i1; b <- sget i2; sput o (a + b)}
---     -- TODO: Generate these
---     in1 = (SIn (StreamInternal "s1" TInt)) :: StreamIn ZInt
---     in2 = (SIn (StreamInternal "s2" TInt)) :: StreamIn ZInt 
---     out1 = (SOut (StreamInternal "o1" TInt)) :: StreamOut ZInt 
+--     (ifs,c) = runGenIF (genInterfaces f)
+--     -- This is clearly wrong! (How to protect against it ?)
+--     -- Need a relation between the type of testWrong and f. 
+--     -- and genInterfaces needs to know about this as well.. 
+--     f ::  StreamIn ZFloat -> StreamOut ZFloat -> Compute () 
+--     f i o = do {a <- sget i; sput o a}
 
+--compTest :: Block (() :+: ()) (Stream ZInt :+: ()) (Stream ZInt :+: () )
+compTest :: Block '[] '[Stream ZInt] '[Stream ZInt]
+compTest = test :>>: test :>>: test 
+
+-- streamAdd test 
+test2 :: Block '[] '[Stream ZInt, Stream ZInt] '[Stream ZInt]
+test2 = ComputeBlock ifs c 
+  where
+    (ifs,c) = runGenIF (genInterfaces f)
+    f :: StreamIn ZInt -> StreamIn ZInt -> StreamOut ZInt -> Compute () 
+    f i1 i2 o = do {a <- sget i1; b <- sget i2; sput o (a + b)}
+   
