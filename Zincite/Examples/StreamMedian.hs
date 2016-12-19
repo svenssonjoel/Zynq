@@ -14,7 +14,7 @@ import Prelude hiding (mod,div)
 -- TODO Implement a circular buffer abstraction on top of bram
 -- TODO Needs a way to handle counters (nicely) 
 
-streamMedian :: StreamIn (Expr Int) -> StreamOut (Expr Int) -> Compute ()
+streamMedian :: StreamIn (ZInt) -> StreamOut (ZInt) -> Compute ()
 streamMedian in1 out =
   do lmem <- bram (8*4) -- 8 * 4byte quantities
      (i :: ZAddress) <- declare
