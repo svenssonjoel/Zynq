@@ -28,4 +28,7 @@ pullMemory io addr num =
 -- TODO: Pull arrays here have dynamic size.
 --       Which means we need to create loops over them in the target language
 --       if we want to for example fold.
-
+--       - To fold: take a static number of elements from the pull array
+--         and convert to a list. Then use haskell fold functions
+--       - Another way to Fold: could be a pull-to-push function
+-- 

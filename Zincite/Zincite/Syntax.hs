@@ -34,7 +34,12 @@ newtype StreamIn a = SIn {unsin :: StreamInternal} deriving Show -- Phantom type
 newtype StreamOut a = SOut {unsout :: StreamInternal} deriving Show 
 --data LocalMem = LocalMem Name Int deriving Show
 
-
+-- Arguments to functions that return Compute, that are not streams or memory interfaces
+-- are control arguments
+-- TODO: Control parameters should be identified and collected.
+-- TODO: Also need to "hide" control arguments completely at the
+--       Stream composition language level. 
+type Control a = Expr a 
 
 -- Unify the memory types
 data MemoryInternal = InterfaceIO Name
@@ -328,6 +333,7 @@ type family (++) (a :: [k])  (b :: [k]) :: [k] where
 -- by their position in the argument list. 
 data Stream a = S StreamInternal 
 
+
 -- Datatype for composition of stream computations 
 data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
 
@@ -354,7 +360,9 @@ data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
               -> Block m' os o' 
               -> Block (m ++ m') i ('[o] ++ o')  
 
-  MemInterconnect :: Block (m ': ms) i o -> Block '[Memory Global] i o  
+  -- GHC 7.10.3 did not like "Memory Global" in the result list.
+  --  But the head of the input list seems to be fine... 
+  MemInterconnect :: Block (a ': as) i  o -> Block '[a] i o  
   
   
   -- TODO: Come up with more ways to compose Blocks 
