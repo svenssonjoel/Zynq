@@ -333,60 +333,7 @@ type family (++) (a :: [k])  (b :: [k]) :: [k] where
 -- by their position in the argument list. 
 data Stream a = S StreamInternal 
 
-<<<<<<< HEAD
--- The "Compute" language differentiates between input and output streams
--- by them having different types. Thus a conversion mechanism is needed.
 
-class StreamInputs a where
-  type I a
-  streamInputs :: a -> [Int] -> (I a)
-
-class StreamOutputs a where
-  type O a 
-  streamOutputs :: a -> [Int] -> (O a)
-
--- TODO: All this may be unnecessary. We'll see
-
--- TODO: Come up with a way to make a recursive implementation of this
---       possible (if at all possible to begin with) 
-instance Emb a => StreamInputs (Stream a) where
-  type I (Stream a) = StreamIn a
-  streamInputs s (i:_) = SIn (StreamInternal ("input"++show i) (typeOf  (undefined :: a)))
-
-instance (Emb a, Emb b) => StreamInputs (Stream a, Stream b) where
-  type  I (Stream a, Stream b) = (StreamIn a, StreamIn b)
-  streamInputs s (i:j:_) =
-    (SIn (StreamInternal ("input"++show i) (typeOf (undefined :: a)))
-      , SIn (StreamInternal ("input"++show j) (typeOf (undefined :: b))))
-
-instance (Emb a, Emb b, Emb c) => StreamInputs (Stream a, Stream b, Stream c) where
-  type  I (Stream a, Stream b, Stream c) = (StreamIn a, StreamIn b, StreamIn c)
-  streamInputs s (i:j:k:_) =
-    (SIn (StreamInternal ("input"++show i) (typeOf (undefined :: a)))
-      , SIn (StreamInternal ("input"++show j) (typeOf (undefined :: b)))
-      , SIn (StreamInternal ("input"++show k) (typeOf (undefined :: c))))
-
--- A few Outputs instances 
-instance Emb a => StreamOutputs (Stream a) where
-  type O (Stream a) = StreamOut a
-  streamOutputs s (i:_) = SOut (StreamInternal ("output"++show i) (typeOf  (undefined :: a)))
-
-instance (Emb a, Emb b) => StreamOutputs (Stream a, Stream b) where
-  type  O (Stream a, Stream b) = (StreamOut a, StreamOut b)
-  streamOutputs s (i:j:_) =
-    (SOut (StreamInternal ("output"++show i) (typeOf (undefined :: a)))
-      , SOut (StreamInternal ("output"++show j) (typeOf (undefined :: b))))
-
-instance (Emb a, Emb b, Emb c) => StreamOutputs (Stream a, Stream b, Stream c) where
-  type  O (Stream a, Stream b, Stream c) = (StreamOut a, StreamOut b, StreamOut c)
-  streamOutputs s (i:j:k:_) =
-    (SOut (StreamInternal ("output"++show i) (typeOf (undefined :: a)))
-      , SOut (StreamInternal ("output"++show j) (typeOf (undefined :: b)))
-      , SOut (StreamInternal ("output"++show k) (typeOf (undefined :: c))))
-
-
-=======
->>>>>>> eb0b9e4a9505ede876c26a0c5afba4ebef965a0b
 -- Datatype for composition of stream computations 
 data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
 
@@ -413,7 +360,9 @@ data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
               -> Block m' os o' 
               -> Block (m ++ m') i ('[o] ++ o')  
 
-  MemInterconnect :: Block (m ': ms) i o -> Block '[Memory Global] i o  
+  -- GHC 7.10.3 did not like "Memory Global" in the result list.
+  --  But the head of the input list seems to be fine... 
+  MemInterconnect :: Block (a ': as) i  o -> Block '[a] i o  
   
   
   -- TODO: Come up with more ways to compose Blocks 
