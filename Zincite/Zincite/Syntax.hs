@@ -7,6 +7,7 @@
 {-# LANGUAGE DeriveFunctor, DeriveFoldable, DeriveTraversable #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+-- TODO: Use the "overlapping,overlappable, etc" pragmas .
 {-# LANGUAGE OverlappingInstances #-} 
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE DataKinds #-}
@@ -335,7 +336,7 @@ data Stream a = S StreamInternal
 
 
 -- Datatype for composition of stream computations 
-data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
+data Block (mem :: [*]) (istreams :: [*]) (ostreams :: [*])  where
 
   ComputeBlock :: Interfaces mem istreams ostreams
                -> Compute ()
@@ -347,8 +348,21 @@ data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
        -- where the arguments (a ..) are memory interfaces, streams, etc.
        -- The type information present in the inputs to the function
        -- are forgotten when applied (at haskell type level), but we
-       -- still want to know this when composing Blocks. 
-  
+       -- still want to know this when composing Blocks.
+
+  {-
+  What if we required the function to use tuples (grouped together) of input,outputs, mem ? 
+  mem, istreams, ostreams are all tuples, () or a singleton
+
+  ComputeBlock :: (mem -> istreams -> ostreams -> Compute ()) -> Block mem istreams ostreams 
+
+  What about the "control/init" arguments ?
+    - preapply? (require first tuple position)
+    - represent in the ComputeBlock constructor? 
+   
+  -}
+           
+               
   (:>>:) :: Block m i o -> Block m' o o' -> Block (m ++ m') i o'
 
   -- Woa, writing the connectors is tricky! 
@@ -362,7 +376,7 @@ data Block (mem :: [k]) (istreams :: [k]) (ostreams :: [k])  where
 
   -- GHC 7.10.3 did not like "Memory Global" in the result list.
   --  But the head of the input list seems to be fine... 
-  MemInterconnect :: Block (a ': as) i  o -> Block '[a] i o  
+  MemInterconnect :: Block (a ': as) i  o -> Block '[Memory Global] i o  
   
   
   -- TODO: Come up with more ways to compose Blocks 
@@ -465,6 +479,10 @@ test = ComputeBlock ifs c
     
     f :: StreamIn ZInt -> StreamOut ZInt -> Compute () 
     f i o = do {a <- sget i; sput o a}
+
+
+-- Compute [Symbol] [Symbol] [Symbol] a
+-- control_args -> Compute .... a 
 
 
 -- NOW testWrong leads to an error "No instance for GenInterfaces..." 
