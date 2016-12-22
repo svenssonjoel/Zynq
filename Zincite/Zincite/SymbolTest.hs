@@ -66,6 +66,7 @@ type instance GetLabel (Stream l t) = Proxy l
 -- Something is very wrong here .. 
 -- I wanted to write this: (TyFun (Stream l t) l -> *) 
 -- But got errors i could not understand. 
+-- data GetLabel' :: TyFun (Stream l t) l -> * where 
 data GetLabel' :: TyFun a b -> * where 
      GetLabel' :: GetLabel' f
  
@@ -87,6 +88,13 @@ instance (StringSymbols xs, KnownSymbol x) => StringSymbols ((Proxy x) ': xs) wh
     symbolVal (undefined :: Proxy x) 
       : (stringSymbols (undefined :: Proxy xs)) 
   
+--Does not quite work, of course. Need some way to make sure that all 
+--the symbols in the lists always have the property "KnownSymbol" 
+-- If that is the problem: 
+--
+-- 
+-- 
+
  
 -- testing: grabbing a symbol  
 testGetASymbol :: forall i o. StringSymbols (Map GetLabel' o) =>  Box i o -> [String] 
@@ -95,5 +103,15 @@ testGetASymbol _ = stringSymbols (undefined :: Proxy (Map GetLabel' o))
 -- > testGetASymbol myIota
 -- ["iota"]
 
+-- Example: 
+-- > testGetASymbol test1  
+--   * No instance for (StringSymbols
+--                        '[Zincite.SymbolTest.Stream "out2" Int])
+--       arising from a use of `testGetASymbol'
+--   * In the expression: testGetASymbol test1
+--     In an equation for `it': it = testGetASymbol test1
+--
+-- NOTE: I am guessing this is because of the KnownSymbol property not being omnipresent. 
+--   
 
 
