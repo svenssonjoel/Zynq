@@ -1,8 +1,17 @@
 {-# LANGUAGE GADTs, TypeOperators, DataKinds, KindSignatures, PolyKinds #-}
+{-# LANGUAGE ScopedTypeVariables, TypeFamilies #-} 
+-- {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 
+module Zincite.SymbolTest where 
 
 import GHC.TypeLits
 
+import Data.Proxy
+
+import Data.Type.List 
+import Data.Singletons
 
 -- Empty dummy stream 
 data Stream (l :: Symbol) a
@@ -10,7 +19,7 @@ data Stream (l :: Symbol) a
 data Connection (c :: [(Symbol, Symbol)])
 
 {- 
-  TODO:
+  TODO
    - unzip "Connections"
    - Figure out how to check if the Connection mapping is "OK"
      for 2 given boxes 
@@ -50,4 +59,41 @@ splitter = Dup
 
 test1 :: Box '[] '[Stream "out1" Int, Stream "out2" Int] 
 test1 = Connect myIota (undefined :: Connection '[ '("iota","in")]) splitter
+
+type family GetLabel a 
+type instance GetLabel (Stream l t) = Proxy l 
+
+-- Something is very wrong here .. 
+-- I wanted to write this: (TyFun (Stream l t) l -> *) 
+-- But got errors i could not understand. 
+data GetLabel' :: TyFun a b -> * where 
+     GetLabel' :: GetLabel' f
+ 
+type instance Apply GetLabel' a = GetLabel a
+-- exists in Data.Type.List (requires curried type fun "TyFun a b") 
+--type family Map (f :: k -> k) (l :: [k]) :: [k]
+--type instance Map f '[] = '[] 
+--type instance Map f (x ': xs) = f x ': (Map f xs) 
+  
+-- Reify a type-list of Symbols into a value-list of Strings 
+class StringSymbols (a :: [k]) where 
+  stringSymbols :: Proxy a -> [String] 
+  
+instance StringSymbols '[] where 
+  stringSymbols _ = []
+
+instance (StringSymbols xs, KnownSymbol x) => StringSymbols ((Proxy x) ': xs) where 
+  stringSymbols _ = 
+    symbolVal (undefined :: Proxy x) 
+      : (stringSymbols (undefined :: Proxy xs)) 
+  
+ 
+-- testing: grabbing a symbol  
+testGetASymbol :: forall i o. StringSymbols (Map GetLabel' o) =>  Box i o -> [String] 
+testGetASymbol _ = stringSymbols (undefined :: Proxy (Map GetLabel' o)) 
+-- Example: 
+-- > testGetASymbol myIota
+-- ["iota"]
+
+
 
