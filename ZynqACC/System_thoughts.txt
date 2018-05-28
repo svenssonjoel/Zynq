@@ -1,0 +1,38 @@
+
+System thoughts
+----------------------
+
+- Kernel generation?
+  - Is it possible to pregenerate a minimal set of kernels that can all be programmed
+    onto the FPGA at once?
+  - Is it possible to have a set of bit-files and switch between these
+    if option one is impossible?
+  - Pregeneration of specialized bit-files per application.
+  - Generate OpenCL, or C? (Maybe C) 
+  - Is it possible to generate any supporting infrastructure? (scheduler??)
+  - Kernel optimisation and fusion 
+
+- Hardware generation automation
+  - Generate TCL and take the VIVADO GUI out of the loop 
+
+- Runtime considerations?
+  - Shared FPGA between applications, how ?? 
+
+- Safety/security angle?
+  - Can LTZvisor be used in this context?
+  - Usage of FPGA resources from both partitions in an MCS, is this possible?
+    - Guarantees of isolation in this case? (if the non-critical partition gets control of the
+      FPGA, it may have total view of memory).
+
+- Example applications:
+  - Image processing
+    - Edge detection
+  - what else?  
+
+- Demonstrator? 
+
+
+
+
+
+
