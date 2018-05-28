@@ -1,0 +1,37 @@
+
+Components
+----------------
+
+Dimensionality and sizes:
+- 1,2 and 3D arrays
+- Arrays have finite length
+
+
+Array creation:
+- const_array
+- iota 
+
+Map:
+- map
+- multiple different zipWith
+- map with index: imap
+- zipWith with index: iZipWith ?
+    -- imap, izipwith easily implemented with iota and basic zipwith. 
+
+Reduction:
+- Different kinds of reductions for arrays of different dimensions 
+
+Filtering:
+
+
+Scan:
+
+Stencil operations:
+
+Supported data elements:
+- Base types: Int32, Int64, Float, Double, Bool etc
+- Structure of arrays will be the only option for composite data types
+
+
+
+
